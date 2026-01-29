@@ -1,0 +1,5 @@
+worlds:
+  base: world
+hunger:
+  min-food: 20
+  max-food: 20

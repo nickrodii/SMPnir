@@ -17,11 +17,9 @@
 - Enchanted book XP rewards (halved values).
 
 ## Future Features
-- Questbook will use the written-book GUI (book & quill style UI).
-- Planned commands/aliases: `/level`, `/quests`, `/questbook`, `/book`, `/progress`, `/stats`, `/statistics`.
-- Questbook should show level progress, stats, and quests.
-- TODO: Add quests in a future version of the plugin.
 - TODO: Special Event Nights
+- Vote to skip to day (one player must be sleeping though)
+- Chest full of the players loot spawns instead of dropping their items upon death
 
 ## Level Curve (Locked)
 - Baseline: 10,000 XP/hour (about 167 XP/min).

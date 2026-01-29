@@ -72,7 +72,7 @@ public class QuestListener implements Listener {
             return;
         }
         int count = 0;
-        for (Entity nearby : world.getNearbyEntities(location, TNT_RADIUS, TNT_RADIUS, TNT_RADIUS, e -> e instanceof TNTPrimed)) {
+        for (Entity entity : world.getNearbyEntities(location, TNT_RADIUS, TNT_RADIUS, TNT_RADIUS, e -> e instanceof TNTPrimed)) {
             count++;
         }
         if (count >= TNT_REQUIRED) {

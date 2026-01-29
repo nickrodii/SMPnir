@@ -186,22 +186,6 @@ public class BlockListener implements Listener {
         return ageable.getAge() >= ageable.getMaximumAge();
     }
 
-
-    private boolean isSugarCanePlaced(Block block) {
-        Block base = block;
-        while (base.getRelative(0, -1, 0).getType() == Material.SUGAR_CANE) {
-            base = base.getRelative(0, -1, 0);
-        }
-        Block current = base;
-        while (current.getType() == Material.SUGAR_CANE) {
-            if (blockTrackerService.isPlaced(current)) {
-                return true;
-            }
-            current = current.getRelative(0, 1, 0);
-        }
-        return false;
-    }
-
     private void tagCropXp(Item item, int xp, int count) {
         var container = item.getPersistentDataContainer();
         container.set(Keys.CROP_XP_VALUE, PersistentDataType.INTEGER, xp);

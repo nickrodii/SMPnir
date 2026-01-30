@@ -51,7 +51,7 @@ public class SleepVoteListener implements Listener {
         if (!worldAccess.isAllowed(event.getWorld()) || worldAccess.isNetherOrEnd(event.getWorld())) {
             return;
         }
-        if (!sleepVoteService.isActive() && event.getWorld().getServer().getOnlinePlayers().size() <= 1) {
+        if (!sleepVoteService.isActive() && org.bukkit.Bukkit.getOnlinePlayers().size() <= 1) {
             return;
         }
         event.setCancelled(true);

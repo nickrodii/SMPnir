@@ -26,8 +26,7 @@ import java.util.HashMap;
 import java.util.UUID;
 
 public class LeaderboardCommand implements CommandExecutor {
-    private static final int DEFAULT_LIMIT = 10;
-    private static final int MAX_LIMIT = 50;
+    private static final int TOP_COUNT = 5;
     private static final int LINE_WIDTH = 19;
     private static final int BAR_SEGMENTS = 18;
     private static final NamedTextColor BAR_BRACKET = NamedTextColor.GRAY;
@@ -49,22 +48,7 @@ public class LeaderboardCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        int limit = DEFAULT_LIMIT;
-        if (args.length >= 1) {
-            try {
-                limit = Integer.parseInt(args[0]);
-            } catch (NumberFormatException ignored) {
-                sender.sendMessage("Usage: /leaderboard [count]");
-                return true;
-            }
-        }
-        if (limit < 1) {
-            sender.sendMessage("Count must be at least 1.");
-            return true;
-        }
-        if (limit > MAX_LIMIT) {
-            limit = MAX_LIMIT;
-        }
+        int limit = TOP_COUNT;
 
         List<LeaderboardEntry> entries = loadEntries();
         if (entries.isEmpty()) {

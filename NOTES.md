@@ -19,8 +19,7 @@
 ## Future Features
 - TODO: Special Event Nights
 - /board opens a public editable book saved server-wide.
-- make the only working book command /book
-- 
+- Add ways to supercharge enchantments
 
 ## Level Curve (Locked)
 - Baseline: 10,000 XP/hour (about 167 XP/min).

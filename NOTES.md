@@ -3,23 +3,24 @@
 ## Implemented Features
 - YAML player data saved in `plugins/SMPnir/players/<uuid>.yml`.
 - Level curve and XP system with multi-level ups.
-- Chat prefix + tab/display names show `[level + symbol] name` with gradient colors per 10 levels.
+- Chat prefix + tab/display names show `[level + symbol] name` with gradient colors per 10 nir.
 - Below-name stat display with live refresh; default is hours played.
 - /questbook (and aliases) opens the book UI; stats and collections menus use chest GUIs.
-- /nir admin commands: xp add/remove/set, level add/remove/set, totalxp, debug.
-- /board opens a public editable book saved server-wide.
+- /nir admin commands: xp add/remove/set/get, level add/remove/set, collections/stats edits, debug, per-player rules (death chest toggle).
 - /coords (alias /coordinates) prints current coordinates.
 - Health scales from 8 hearts (level 1) to 20 hearts (level 100), survival worlds only.
-- Hunger caps from 10 to 20 points by level, survival worlds only.
+- Hunger scales from 10 points (level 1) to 40 points (level 100) by level, survival worlds only. Not visually     though, this is happening using hunger change multiplier (40 being .25x change)
 - Level-up sound + particle burst.
 - Action-bar XP popups for all XP sources except playtime.
 - Fishing collections tracking (unique items) + 300 XP on first find.
 - Enchanted book XP rewards (halved values).
-
+- Sleep vote skip-to-day with unanimous chat buttons.
+- Death chest on player death (with coords message), lava burn timer + hologram countdown, respects per-player enable/disable.
 ## Future Features
 - TODO: Special Event Nights
-- Vote to skip to day (one player must be sleeping though)
-- Chest full of the players loot spawns instead of dropping their items upon death
+- /board opens a public editable book saved server-wide.
+- make the only working book command /book
+- 
 
 ## Level Curve (Locked)
 - Baseline: 10,000 XP/hour (about 167 XP/min).
@@ -33,45 +34,36 @@
 - Total XP to level 100: 2,362,183 XP (~236.2h, ~9.8 days of hard grind).
 
 ## XP Sources (Draft with Recommended Values)
-- Playtime (active only): 20 XP/min (1,200 XP/hour; ~7.2 minutes of baseline time per hour played).
-  - AFK timer: stop playtime XP after 15 minutes without activity.
-- Survival streak (time since last death):
-  - Multiplier on playtime XP only: `1.0 + 0.05 * hoursAlive`, capped at 2.0x.
-  - Dying resets the multiplier.
-- Mining ores (natural generation only):
-  - Common (least XP):
-    - Copper: 20 XP (~7s)
-    - Coal: 20 XP (~7s)
-    - Quartz: 50 XP (~18s)
-    - Nether gold ore: 55 XP (~20s)
-  - Uncommon:
-    - Iron: 80 XP (~29s)
-    - Redstone: 90 XP (~32s)
-    - Lapis: 90 XP (~32s)
-  - Rare:
-    - Gold: 160 XP (~58s)
-    - Emerald: 220 XP (~1.3m)
-  - Epic:
-    - Diamond: 320 XP (~1.9m)
-  - Legendary:
-    - Ancient debris: 650 XP (~3.9m)
+- Playtime: 20 XP/min if active; survival multiplier `1 + 0.05 * hoursAlive` capped at 2×.
+- Player kills: up to 4,800 XP = `round(4,800 * min(1, hoursAlive/20))`, only in allowed worlds.
+- Mobs:
+  - Passive/ambient/water: 10 XP
+  - Monsters: 25 XP
+  - Elite (Enderman, Blaze, Piglin Brute, Evoker, Ravager, Shulker): 40 XP
+  - Bosses: Ender Dragon 5,000; Wither 3,000; Warden 8,000 (max 1/day)
+- Mining (natural, not player-placed):
+  - Copper/Coal: 15 XP
+  - Quartz: 40 XP
+  - Nether gold ore: 44 XP
+  - Iron: 64 XP
+  - Redstone/Lapis/Sculk shrieker: 72 XP
+  - Gold: 80 XP
+  - Emerald: 176 XP
+  - Diamond: 180 XP
+  - Ancient debris: 520 XP
+- Spawner break (natural): 100 XP.
+- Fishing: junk 10 XP; fish 40 XP; treasure 100 XP; +300 XP on first-time catch per collection item.
   - Other:
     - Sculk shrieker: 90 XP (~32s)
   - Note: ore veins can be large (coal/copper). Keep common ore XP low so a huge vein does not outvalue a few diamonds.
-- Kills:
-  - Player kill: `400 + 220 * victimStreakHours`, cap 4,800 XP (~2.4m to ~28.8m).
-  - Passive mobs: 10 XP (~3.6s)
-  - Hostile monsters: 25 XP (~9s)
-  - Elite mobs: 40 XP (~14s)
-  - Bosses:
-    - Ender Dragon: 5,000 XP (~30m)
-    - Wither: 3,000 XP (~18m)
-    - Warden: 8,000 XP (~48m), cap 1 kill per day
-  - No XP from spawner mobs; bred animals are OK; natural monsters are OK.
-- Harvesting crops:
-  - Wheat/Carrot/Potato/Beetroot/Nether wart: 6 XP (~2s)
-  - Sugar cane: 4 XP (~1s) per block, natural growth only (not placed)
+
+  - XP from spawner mobs divides the amount given from the mob by 5; bred animals are OK; natural monsters are OK.
+- Harvesting crops (natural only, fully grown):
+  - wheat/carrot/potato/beetroot/nether wart/cocoa/sweet berry/torchflower/pitcher: 6 XP (~2s)
+  - melon/pumpkin slice tag: 20 XP
+  - Sugar cane: 4 XP (~1s) per block (not placed)
     - XP also awarded when cane drops from non-player harvesting (e.g., piston) on pickup
+    - if the sugar cane is placed into a chest after dropping (most of the time thru a hopper), no xp can be given (to deter easy idle xp)
   - Glow berries: 6 XP (~2s) per harvest
   - Melon/Pumpkin: 20 XP (~7s) per block
   - Cocoa/Sweet berries: 6 XP (~2s)
@@ -87,7 +79,7 @@
   - Task: 250 XP (~1.5m)
   - Goal: 750 XP (~4.5m)
   - Challenge (purple): 2,000 XP (~12m)
-- Quests (later).
+- Quests
 - Biomes visited (first time per biome):
   - Any biome: 50 XP (~18s)
 

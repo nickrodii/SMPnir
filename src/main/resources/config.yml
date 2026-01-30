@@ -3,3 +3,5 @@ worlds:
 hunger:
   min-food: 20
   max-food: 20
+death-chest:
+  burn-minutes: 30

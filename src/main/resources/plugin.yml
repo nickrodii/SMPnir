@@ -1,31 +1,51 @@
 name: SMPnir
-version: 0.1.2
-main: com.nickrodi.levels.LevelsPlugin
+version: 0.1.3
+main: com.nickrodi.nir.NirPlugin
 api-version: "1.21.11"
+
 commands:
   nir:
-
     description: SMPnir admin command.
-    usage: /nir <xp|level|totalxp|debug> [amount]
+    usage: /nir <debug|user> ...
     permission: smpnir.admin
+
   coords:
     description: Show your coordinates.
     usage: /coords
     aliases: [coordinates]
     permission: smpnir.use
+
   questbook:
     description: Open your questbook.
     usage: /questbook
     aliases: [level, quests, book, progress, stats, statistics, b]
     permission: smpnir.use
+
   leaderboard:
     description: Show the top players.
     usage: /leaderboard
     permission: smpnir.use
+
+  sleepvote:
+    description: Vote to skip to day.
+    usage: /sleepvote yes
+    permission: smpnir.use
+
+  smphelp:
+    description: Show the welcome message.
+    usage: /smphelp
+    permission: smpnir.use
+
+  xplist:
+    description: Show all XP sources in the book.
+    usage: /xplist
+    permission: smpnir.use
+
 permissions:
   smpnir.admin:
     description: Allows use of admin commands.
     default: op
+
   smpnir.use:
     description: Allows use of questbook commands.
     default: true

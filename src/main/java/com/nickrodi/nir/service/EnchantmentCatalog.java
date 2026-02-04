@@ -17,7 +17,7 @@ public final class EnchantmentCatalog {
             return key;
         }
     }
-
+// testing submodules
     public record EnchantCategory(String title, List<EnchantEntry> entries) {
     }
 

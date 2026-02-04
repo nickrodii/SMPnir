@@ -1,6 +1,5 @@
 package com.nickrodi.nir.listener;
 
-import com.nickrodi.nir.service.ActivityService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -9,6 +8,9 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import com.nickrodi.nir.service.ActivityService;
+
 import io.papermc.paper.event.player.AsyncChatEvent;
 
 public class ActivityListener implements Listener {
@@ -29,6 +31,7 @@ public class ActivityListener implements Listener {
     public void onCommand(PlayerCommandPreprocessEvent event) {
         activityService.markActive(event.getPlayer().getUniqueId());
     }
+    // message to fix repo ignore
 
     @EventHandler(ignoreCancelled = true)
     public void onChat(AsyncChatEvent event) {

@@ -28,11 +28,13 @@ import java.util.Set;
 public class EntityDeathListener implements Listener {
     private static final int XP_PASSIVE = 10;
     private static final int XP_MONSTER = 60;
+    private static final int XP_SILVERFISH = 4;
     private static final int XP_SPAWNER_MONSTER = 7;
     private static final int XP_ELITE = 120;
     private static final int XP_DRAGON = 5000;
     private static final int XP_WITHER = 3000;
     private static final int XP_WARDEN = 8000;
+    private static final double WITHER_QUEST_RADIUS = 32.0;
 
     private static final Set<EntityType> ELITE_TYPES = EnumSet.of(
             EntityType.ENDERMAN,
@@ -81,7 +83,9 @@ public class EntityDeathListener implements Listener {
             var data = progressionService.getData(killer.getUniqueId());
             data.setDragonKills(data.getDragonKills() + 1);
             data.setDragonXpGained(data.getDragonXpGained() + XP_DRAGON);
-            questService.complete(killer, QuestService.DRAGON_FIRST);
+            if (killer.getWorld().equals(entity.getWorld())) {
+                questService.complete(killer, QuestService.DRAGON_FIRST);
+            }
             return;
         }
         if (type == EntityType.WITHER) {
@@ -89,7 +93,9 @@ public class EntityDeathListener implements Listener {
             var data = progressionService.getData(killer.getUniqueId());
             data.setWitherKills(data.getWitherKills() + 1);
             data.setWitherXpGained(data.getWitherXpGained() + XP_WITHER);
-            questService.complete(killer, QuestService.WITHER_FIRST);
+            if (isNear(killer, entity, WITHER_QUEST_RADIUS)) {
+                questService.complete(killer, QuestService.WITHER_FIRST);
+            }
             return;
         }
         if (type == EntityType.WARDEN || entity instanceof Warden) {
@@ -99,6 +105,14 @@ public class EntityDeathListener implements Listener {
                 data.setWardenKills(data.getWardenKills() + 1);
                 data.setWardenXpGained(data.getWardenXpGained() + XP_WARDEN);
             }
+            return;
+        }
+
+        if (type == EntityType.SILVERFISH) {
+            progressionService.addXp(killer.getUniqueId(), XP_SILVERFISH, "kill");
+            var data = progressionService.getData(killer.getUniqueId());
+            data.setMonstersKilled(data.getMonstersKilled() + 1);
+            data.setMonstersXpGained(data.getMonstersXpGained() + XP_SILVERFISH);
             return;
         }
 
@@ -141,5 +155,15 @@ public class EntityDeathListener implements Listener {
         }
         data.setWardenKillsToday(data.getWardenKillsToday() + 1);
         return true;
+    }
+
+    private boolean isNear(Player player, Entity entity, double radius) {
+        if (player == null || entity == null) {
+            return false;
+        }
+        if (!player.getWorld().equals(entity.getWorld())) {
+            return false;
+        }
+        return player.getLocation().distanceSquared(entity.getLocation()) <= radius * radius;
     }
 }

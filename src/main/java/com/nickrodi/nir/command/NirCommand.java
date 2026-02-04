@@ -7,6 +7,7 @@ import com.nickrodi.nir.service.EnchantmentCatalog;
 import com.nickrodi.nir.service.FishingCollectionCatalog;
 import com.nickrodi.nir.service.LevelCurve;
 import com.nickrodi.nir.service.ProgressionService;
+import com.nickrodi.nir.service.QuestService;
 import com.nickrodi.nir.service.StorageService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -24,11 +25,13 @@ public class NirCommand implements TabExecutor {
     private final ProgressionService progressionService;
     private final LevelCurve levelCurve;
     private final StorageService storageService;
+    private final QuestService questService;
 
-    public NirCommand(ProgressionService progressionService, LevelCurve levelCurve, StorageService storageService) {
+    public NirCommand(ProgressionService progressionService, LevelCurve levelCurve, StorageService storageService, QuestService questService) {
         this.progressionService = Objects.requireNonNull(progressionService, "progressionService");
         this.levelCurve = Objects.requireNonNull(levelCurve, "levelCurve");
         this.storageService = Objects.requireNonNull(storageService, "storageService");
+        this.questService = Objects.requireNonNull(questService, "questService");
     }
 
     @Override
@@ -44,11 +47,15 @@ public class NirCommand implements TabExecutor {
         String root = args[0].toLowerCase(Locale.ROOT);
         switch (root) {
             case "debug" -> {
-                if (!(sender instanceof Player player)) {
-                    sender.sendMessage("Only players can use /nir debug.");
+                if (args.length < 2) {
+                    sender.sendMessage("Usage: /nir debug <xp|updatenotes>");
                     return true;
                 }
-                handleDebugSelf(sender, player);
+                handleDebug(sender, shiftArgs(args, 1));
+                return true;
+            }
+            case "calc" -> {
+                handleCalc(sender, shiftArgs(args, 1));
                 return true;
             }
             case "user" -> {
@@ -68,6 +75,7 @@ public class NirCommand implements TabExecutor {
                     case "collections" -> handleCollections(sender, target, shiftArgs(args, 2));
                     case "statistics", "stats" -> handleStatistics(sender, target, shiftArgs(args, 2));
                     case "rule" -> handleRule(sender, target, shiftArgs(args, 2));
+                    case "quest" -> handleQuest(sender, target, shiftArgs(args, 2));
                     default -> sendHelp(sender);
                 }
                 return true;
@@ -81,10 +89,26 @@ public class NirCommand implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> primary = List.of("user", "debug");
-        List<String> userSubs = List.of("xp", "level", "collections", "statistics", "stats", "rule");
+        List<String> primary = List.of("user", "debug", "calc");
+        List<String> userSubs = List.of("xp", "level", "collections", "statistics", "stats", "rule", "quest");
         if (args.length == 1) {
             return filter(primary, args[0]);
+        }
+
+        if ("debug".equalsIgnoreCase(args[0])) {
+            if (args.length == 2) {
+                return filter(List.of("xp", "updatenotes"), args[1]);
+            }
+            return List.of();
+        }
+        if ("calc".equalsIgnoreCase(args[0])) {
+            if (args.length == 2) {
+                return filter(List.of("E=10", "E=50", "E=100", "E=300"), args[1]);
+            }
+            if (args.length == 3) {
+                return filter(List.of("A=20", "A=50", "A=80", "A=95"), args[2]);
+            }
+            return List.of();
         }
 
         if (!"user".equalsIgnoreCase(args[0])) {
@@ -116,6 +140,15 @@ public class NirCommand implements TabExecutor {
             }
             if (args.length == 5) {
                 return filter(List.of("true", "false"), args[4]);
+            }
+            return List.of();
+        }
+        if (sub.equals("quest")) {
+            if (args.length == 4) {
+                return filter(questIds(), args[3]);
+            }
+            if (args.length == 5) {
+                return filter(List.of("grant", "revoke", "get"), args[4]);
             }
             return List.of();
         }
@@ -265,9 +298,48 @@ public class NirCommand implements TabExecutor {
         sender.sendMessage("Level set to " + targetLevel + ".");
     }
 
-    private void handleDebugSelf(CommandSender sender, Player target) {
-        boolean enabled = progressionService.toggleDebug(target.getUniqueId());
-        sender.sendMessage("XP debug " + (enabled ? "enabled" : "disabled") + ".");
+    private void handleDebug(CommandSender sender, String[] args) {
+        String sub = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "";
+        switch (sub) {
+            case "xp" -> handleDebugXp(sender);
+            case "updatenotes" -> handleDebugUpdateNotes(sender);
+            default -> sender.sendMessage("Usage: /nir debug <xp|updatenotes>");
+        }
+    }
+
+    private void handleDebugXp(CommandSender sender) {
+        if (sender instanceof Player player) {
+            boolean enabled = progressionService.toggleGlobalXpDebug(player.getUniqueId());
+            sender.sendMessage("Global XP debug " + (enabled ? "enabled" : "disabled") + ".");
+        } else {
+            boolean enabled = progressionService.toggleGlobalXpDebugConsole();
+            sender.sendMessage("Global XP debug (console) " + (enabled ? "enabled" : "disabled") + ".");
+        }
+    }
+
+    private void handleDebugUpdateNotes(CommandSender sender) {
+        boolean enabled = progressionService.toggleUpdateNotesDebug();
+        sender.sendMessage("Update notes debug " + (enabled ? "enabled" : "disabled") + ".");
+    }
+
+    private void handleCalc(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /nir calc <effort> <aesthetics>");
+            return;
+        }
+        Double effort = parseNumericToken(args[0]);
+        Double aesthetics = parseNumericToken(args[1]);
+        if (effort == null || aesthetics == null) {
+            sender.sendMessage("Usage: /nir calc <effort> <aesthetics>");
+            return;
+        }
+        if (effort <= 0.0 || aesthetics <= 0.0 || aesthetics >= 100.0) {
+            sender.sendMessage("Usage: /nir calc <effort> <aesthetics>");
+            return;
+        }
+        double value = 4200.0 * Math.pow(Math.log10(effort + 1.0), 2.2) * (0.9 + 0.002 * aesthetics);
+        long rounded = Math.round(value);
+        sender.sendMessage(String.valueOf(rounded));
     }
 
     private void handleRule(CommandSender sender, OfflinePlayer target, String[] args) {
@@ -294,6 +366,49 @@ public class NirCommand implements TabExecutor {
         data.setDeathChestEnabled(enabled);
         saveData(target, data);
         sender.sendMessage("Death chest " + (enabled ? "enabled" : "disabled") + " for " + targetName(target) + ".");
+    }
+
+    private void handleQuest(CommandSender sender, OfflinePlayer target, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /nir user <player> quest <questId> <grant|revoke|get>");
+            return;
+        }
+        String questRaw = args[1];
+        String action = args[2].toLowerCase(Locale.ROOT);
+        QuestService.QuestDefinition quest = resolveQuest(questRaw);
+        if (quest == null) {
+            sender.sendMessage("Unknown quest: " + questRaw);
+            return;
+        }
+        PlayerData data = loadData(target);
+        boolean completed = questService.isComplete(data, quest);
+        switch (action) {
+            case "get" -> sender.sendMessage("Quest " + quest.id() + " completed: " + completed);
+            case "grant" -> {
+                if (completed) {
+                    sender.sendMessage("Quest " + quest.id() + " is already completed for " + targetName(target) + ".");
+                    return;
+                }
+                if (target.isOnline() && target.getPlayer() != null) {
+                    boolean done = questService.complete(target.getPlayer(), quest);
+                    sender.sendMessage(done
+                            ? "Granted quest " + quest.id() + " for " + targetName(target) + "."
+                            : "Quest " + quest.id() + " is already completed for " + targetName(target) + ".");
+                    return;
+                }
+                grantQuestOffline(target, data, quest);
+                sender.sendMessage("Granted quest " + quest.id() + " for " + targetName(target) + ".");
+            }
+            case "revoke" -> {
+                if (!completed) {
+                    sender.sendMessage("Quest " + quest.id() + " is not completed for " + targetName(target) + ".");
+                    return;
+                }
+                revokeQuest(target, data, quest);
+                sender.sendMessage("Revoked quest " + quest.id() + " for " + targetName(target) + ".");
+            }
+            default -> sender.sendMessage("Usage: /nir user <player> quest <questId> <grant|revoke|get>");
+        }
     }
 
     private void handleCollections(CommandSender sender, OfflinePlayer target, String[] args) {
@@ -514,12 +629,14 @@ public class NirCommand implements TabExecutor {
 
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("Usage:");
-        sender.sendMessage("/nir debug");
+        sender.sendMessage("/nir debug <xp|updatenotes>");
+        sender.sendMessage("/nir calc <effort> <aesthetics>");
         sender.sendMessage("/nir user <player> xp <add|remove|set|get> [amount]");
         sender.sendMessage("/nir user <player> level <add|remove|set> <amount>");
         sender.sendMessage("/nir user <player> collections <category> <grant|revoke|clear> <id> [level]");
         sender.sendMessage("/nir user <player> statistics <section> <set|add|remove> <stat> <amount>");
         sender.sendMessage("/nir user <player> rule deathchest <true|false>");
+        sender.sendMessage("/nir user <player> quest <questId> <grant|revoke|get>");
     }
 
     private List<String> filter(List<String> options, String token) {
@@ -561,6 +678,21 @@ public class NirCommand implements TabExecutor {
             return Integer.parseInt(raw);
         } catch (NumberFormatException e) {
             return fallback;
+        }
+    }
+
+    private Double parseNumericToken(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String cleaned = raw.trim().replaceAll("[^0-9.+-]", "");
+        if (cleaned.isBlank() || cleaned.equals(".") || cleaned.equals("+") || cleaned.equals("-")) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(cleaned);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 
@@ -660,9 +792,75 @@ public class NirCommand implements TabExecutor {
         };
     }
 
+    private List<String> questIds() {
+        List<String> ids = new ArrayList<>();
+        for (QuestService.QuestDefinition quest : questService.quests()) {
+            ids.add(quest.id());
+        }
+        return ids;
+    }
+
     private String targetName(OfflinePlayer target) {
         String name = target.getName();
         return name != null ? name : target.getUniqueId().toString();
+    }
+
+    private QuestService.QuestDefinition resolveQuest(String input) {
+        if (input == null) {
+            return null;
+        }
+        String normalized = normalizeKey(input);
+        QuestService.QuestDefinition fallback = null;
+        for (QuestService.QuestDefinition quest : questService.quests()) {
+            String title = normalizeKey(quest.title());
+            if (title.equals(normalized)) {
+                return quest;
+            }
+        }
+        for (QuestService.QuestDefinition quest : questService.quests()) {
+            String questId = normalizeKey(quest.id());
+            if (questId.equals(normalized)) {
+                return quest;
+            }
+            if (!normalized.isBlank() && questId.contains(normalized)) {
+                fallback = fallback == null ? quest : null;
+            }
+        }
+        return fallback;
+    }
+
+    private void grantQuestOffline(OfflinePlayer target, PlayerData data, QuestService.QuestDefinition quest) {
+        List<String> completed = data.getQuestsCompleted();
+        if (completed == null) {
+            completed = new ArrayList<>();
+        }
+        completed.add(quest.id());
+        data.setQuestsCompleted(completed);
+        data.setQuestsDone(data.getQuestsDone() + 1);
+        data.setQuestsXpGained(data.getQuestsXpGained() + quest.xp());
+        long newTotal = data.getTotalXp() + quest.xp();
+        data.setTotalXp(newTotal);
+        data.setLevel(levelCurve.getLevelForTotalXp(newTotal));
+        saveData(target, data);
+    }
+
+    private void revokeQuest(OfflinePlayer target, PlayerData data, QuestService.QuestDefinition quest) {
+        List<String> completed = data.getQuestsCompleted();
+        if (completed == null || completed.isEmpty()) {
+            return;
+        }
+        completed.remove(quest.id());
+        data.setQuestsCompleted(completed);
+        data.setQuestsDone(Math.max(0L, data.getQuestsDone() - 1));
+        data.setQuestsXpGained(Math.max(0L, data.getQuestsXpGained() - quest.xp()));
+        long newTotal = Math.max(0L, data.getTotalXp() - quest.xp());
+        if (target.isOnline()) {
+            progressionService.setTotalXp(target.getUniqueId(), newTotal, "admin");
+        } else {
+            data.setTotalXp(newTotal);
+            data.setLevel(levelCurve.getLevelForTotalXp(newTotal));
+            saveData(target, data);
+        }
     }
 
     private String resolveFishingId(String input) {

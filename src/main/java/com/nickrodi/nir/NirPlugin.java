@@ -6,6 +6,7 @@ import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.nickrodi.nir.command.CoordsCommand;
+import com.nickrodi.nir.command.BuildCommand;
 import com.nickrodi.nir.command.LeaderboardCommand;
 import com.nickrodi.nir.command.NirCommand;
 import com.nickrodi.nir.command.QuestBookCommand;
@@ -42,6 +43,7 @@ import com.nickrodi.nir.listener.TradeListener;
 import com.nickrodi.nir.service.ActivityService;
 import com.nickrodi.nir.service.BlockTrackerService;
 import com.nickrodi.nir.service.BoardService;
+import com.nickrodi.nir.service.BuildReviewService;
 import com.nickrodi.nir.service.ChatFormatService;
 import com.nickrodi.nir.service.CollectionsMenuService;
 import com.nickrodi.nir.service.DeathChestService;
@@ -80,6 +82,7 @@ public class NirPlugin extends JavaPlugin {
     private CollectionsMenuService collectionsMenuService;
     private ChatFormatService chatFormatService;
     private StatDisplayService statDisplayService;
+    private BuildReviewService buildReviewService;
     private BoardService boardService;
     private DeathChestService deathChestService;
     private SleepVoteService sleepVoteService;
@@ -110,6 +113,8 @@ public class NirPlugin extends JavaPlugin {
         collectionsMenuService = new CollectionsMenuService();
         chatFormatService = new ChatFormatService(progressionService);
         statDisplayService = new StatDisplayService(progressionService);
+        buildReviewService = new BuildReviewService(this);
+        buildReviewService.load();
         tabListService = new TabListService(progressionService, levelCurve);
         activityService = new ActivityService();
         welcomeService = new WelcomeService(this);
@@ -139,7 +144,8 @@ public class NirPlugin extends JavaPlugin {
                         healthService,
                         hungerService,
                         statDisplayService,
-                        welcomeService
+                        welcomeService,
+                        buildReviewService
                 ),
                 this
         );
@@ -279,7 +285,7 @@ public class NirPlugin extends JavaPlugin {
 
         PluginCommand nirCommand = getCommand("nir");
         if (nirCommand != null) {
-            NirCommand nirExecutor = new NirCommand(progressionService, levelCurve, storageService);
+            NirCommand nirExecutor = new NirCommand(progressionService, levelCurve, storageService, questService);
             nirCommand.setExecutor(nirExecutor);
             nirCommand.setTabCompleter(nirExecutor);
         } else {
@@ -291,6 +297,15 @@ public class NirPlugin extends JavaPlugin {
             coordsCommand.setExecutor(new CoordsCommand());
         } else {
             getLogger().log(Level.WARNING, () -> "Command 'coords' not found in plugin.yml.");
+        }
+
+        PluginCommand buildCommand = getCommand("build");
+        if (buildCommand != null) {
+            BuildCommand buildExecutor = new BuildCommand(buildReviewService, progressionService);
+            buildCommand.setExecutor(buildExecutor);
+            buildCommand.setTabCompleter(buildExecutor);
+        } else {
+            getLogger().log(Level.WARNING, () -> "Command 'build' not found in plugin.yml.");
         }
 
         PluginCommand questBookCommand = getCommand("questbook");
@@ -363,6 +378,9 @@ public class NirPlugin extends JavaPlugin {
         }
         if (structureRewardService != null) {
             structureRewardService.save();
+        }
+        if (buildReviewService != null) {
+            buildReviewService.save();
         }
         if (deathChestService != null) {
             deathChestService.shutdown();

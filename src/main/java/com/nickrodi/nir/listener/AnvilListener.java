@@ -46,10 +46,7 @@ public class AnvilListener implements Listener {
             int after = ExperienceUtil.getTotalExperience(player);
             int spent = Math.max(0, before - after);
             if (spent > 0) {
-                progressionService.addXp(player.getUniqueId(), spent, "vanilla-xp");
-                var data = progressionService.getData(player.getUniqueId());
-                data.setVanillaXpSpent(data.getVanillaXpSpent() + spent);
-                data.setVanillaXpGained(data.getVanillaXpGained() + spent);
+                progressionService.addVanillaXp(player.getUniqueId(), spent);
             }
         });
     }

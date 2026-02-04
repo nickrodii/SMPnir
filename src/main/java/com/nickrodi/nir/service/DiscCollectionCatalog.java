@@ -1,13 +1,13 @@
 package com.nickrodi.nir.service;
 
-import org.bukkit.Material;
-
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.HashMap;
+
+import org.bukkit.Material;
 
 public final class DiscCollectionCatalog {
     private static final List<DiscEntry> ENTRIES;

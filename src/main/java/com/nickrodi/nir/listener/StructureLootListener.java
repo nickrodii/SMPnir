@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Chest;
 import org.bukkit.block.DoubleChest;
@@ -40,6 +41,9 @@ public class StructureLootListener implements Listener {
     private static final int XP_IGLOO = 40;
     private static final int XP_SHIPWRECK = 60;
     private static final int XP_BASTION = 400;
+    private static final int XP_SPAWNER_CHEST = 100;
+    private static final int SPAWNER_RADIUS_XZ = 6;
+    private static final int SPAWNER_RADIUS_Y = 3;
 
     private final ProgressionService progressionService;
     private final BlockTrackerService blockTrackerService;
@@ -85,7 +89,10 @@ public class StructureLootListener implements Listener {
 
         int xp = getStructureXp(location);
         if (xp <= 0) {
-            return;
+            xp = getSpawnerChestXp(location);
+            if (xp <= 0) {
+                return;
+            }
         }
 
         String key = rewardService.key(location);
@@ -147,6 +154,31 @@ public class StructureLootListener implements Listener {
         for (StructureReward reward : rewards) {
             if (isStructureAt(location, reward.structure())) {
                 return reward.xp();
+            }
+        }
+        return 0;
+    }
+
+    private int getSpawnerChestXp(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return 0;
+        }
+        var world = location.getWorld();
+        int baseX = location.getBlockX();
+        int baseY = location.getBlockY();
+        int baseZ = location.getBlockZ();
+        for (int y = baseY - SPAWNER_RADIUS_Y; y <= baseY + SPAWNER_RADIUS_Y; y++) {
+            for (int x = baseX - SPAWNER_RADIUS_XZ; x <= baseX + SPAWNER_RADIUS_XZ; x++) {
+                for (int z = baseZ - SPAWNER_RADIUS_XZ; z <= baseZ + SPAWNER_RADIUS_XZ; z++) {
+                    var block = world.getBlockAt(x, y, z);
+                    if (block.getType() != Material.SPAWNER) {
+                        continue;
+                    }
+                    if (blockTrackerService.isPlaced(block)) {
+                        continue;
+                    }
+                    return XP_SPAWNER_CHEST;
+                }
             }
         }
         return 0;

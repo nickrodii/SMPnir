@@ -944,10 +944,6 @@ public class QuestBookService {
         return "/questbook stat " + id;
     }
 
-    private Component centeredStatLine(String label, long xp) {
-        return centeredStatLine(label, xp, null);
-    }
-
     private Component centeredStatLine(String label, long xp, String command) {
         String left = label;
         String right = "(" + xp + " XP)";

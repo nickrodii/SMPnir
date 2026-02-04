@@ -29,7 +29,7 @@ public class XpListCommand implements CommandExecutor {
         player.sendMessage(line("Ore details:", "Redstone/Lapis/Sculk 72, Gold 80, Emerald 176, Diamond 180, Ancient Debris 520"));
         player.sendMessage(line("Crops:", "6 XP per fully-grown crop"));
         player.sendMessage(line("Mobs killed:", "10 XP (passive/ambient/water)"));
-        player.sendMessage(line("Monsters killed:", "60 XP; elites 120 XP; spawner monsters 7 XP"));
+        player.sendMessage(line("Monsters killed:", "60 XP; silverfish 4 XP; elites 120 XP; spawner monsters 7 XP"));
         player.sendMessage(line("Boss kills:", "Dragon 5000, Wither 3000, Warden 8000 (1/day)"));
         player.sendMessage(line("Player kills:", "0 to 4800 XP (based on victim streak, max at 20h)"));
         player.sendMessage(line("Mobs bred:", "20 XP"));

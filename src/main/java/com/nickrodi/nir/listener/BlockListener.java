@@ -45,8 +45,8 @@ public class BlockListener implements Listener {
         ORE_XP.put(Material.DEEPSLATE_COAL_ORE, 15);
         ORE_XP.put(Material.NETHER_QUARTZ_ORE, 40);
         ORE_XP.put(Material.NETHER_GOLD_ORE, 44);
-        ORE_XP.put(Material.IRON_ORE, 64);
-        ORE_XP.put(Material.DEEPSLATE_IRON_ORE, 64);
+        ORE_XP.put(Material.IRON_ORE, 40);
+        ORE_XP.put(Material.DEEPSLATE_IRON_ORE, 40);
         ORE_XP.put(Material.REDSTONE_ORE, 72);
         ORE_XP.put(Material.DEEPSLATE_REDSTONE_ORE, 72);
         ORE_XP.put(Material.LAPIS_ORE, 72);

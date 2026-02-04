@@ -42,6 +42,8 @@ public class PlayerData {
     private long tradeXpGained;
     private long vanillaXpSpent;
     private long vanillaXpGained;
+    private long vanillaXpDay;
+    private long vanillaXpDaily;
     private long advancementsDone;
     private long advancementsXpGained;
     private long questsDone;
@@ -53,12 +55,15 @@ public class PlayerData {
     private long fishingXpGained;
     private long nightEventsFound;
     private long nightEventsXpGained;
+    private long buildXpGained;
+    private String lastUpdateMessageVersion;
     private long biomesXpGained;
     private long structureChestsXpGained;
     private long enchantsXpGained;
     private List<String> discsFound;
     private List<String> bestiaryFound;
     private boolean deathChestEnabled;
+    private String statDisplayType;
 
     public PlayerData() {
         this.level = 1;
@@ -94,6 +99,8 @@ public class PlayerData {
         this.tradeXpGained = 0L;
         this.vanillaXpSpent = 0L;
         this.vanillaXpGained = 0L;
+        this.vanillaXpDay = 0L;
+        this.vanillaXpDaily = 0L;
         this.advancementsDone = 0L;
         this.advancementsXpGained = 0L;
         this.questsDone = 0L;
@@ -101,12 +108,17 @@ public class PlayerData {
         this.questsCompleted = null;
         this.structureChestsOpened = 0L;
         this.fishingItemsFound = null;
+        this.nightEventsFound = 0L;
+        this.nightEventsXpGained = 0L;
+        this.buildXpGained = 0L;
+        this.lastUpdateMessageVersion = null;
         this.biomesXpGained = 0L;
         this.structureChestsXpGained = 0L;
         this.enchantsXpGained = 0L;
         this.discsFound = null;
         this.bestiaryFound = null;
         this.deathChestEnabled = true;
+        this.statDisplayType = null;
     }
 
     public PlayerData(int level, long totalXp) {
@@ -143,6 +155,8 @@ public class PlayerData {
         this.tradeXpGained = 0L;
         this.vanillaXpSpent = 0L;
         this.vanillaXpGained = 0L;
+        this.vanillaXpDay = 0L;
+        this.vanillaXpDaily = 0L;
         this.advancementsDone = 0L;
         this.advancementsXpGained = 0L;
         this.questsDone = 0L;
@@ -150,12 +164,17 @@ public class PlayerData {
         this.questsCompleted = null;
         this.structureChestsOpened = 0L;
         this.fishingItemsFound = null;
+        this.nightEventsFound = 0L;
+        this.nightEventsXpGained = 0L;
+        this.buildXpGained = 0L;
+        this.lastUpdateMessageVersion = null;
         this.biomesXpGained = 0L;
         this.structureChestsXpGained = 0L;
         this.enchantsXpGained = 0L;
         this.discsFound = null;
         this.bestiaryFound = null;
         this.deathChestEnabled = true;
+        this.statDisplayType = null;
     }
 
     public int getLevel() {
@@ -462,6 +481,22 @@ public class PlayerData {
         this.vanillaXpGained = vanillaXpGained;
     }
 
+    public long getVanillaXpDay() {
+        return vanillaXpDay;
+    }
+
+    public void setVanillaXpDay(long vanillaXpDay) {
+        this.vanillaXpDay = vanillaXpDay;
+    }
+
+    public long getVanillaXpDaily() {
+        return vanillaXpDaily;
+    }
+
+    public void setVanillaXpDaily(long vanillaXpDaily) {
+        this.vanillaXpDaily = vanillaXpDaily;
+    }
+
     public long getAdvancementsDone() {
         return advancementsDone;
     }
@@ -550,6 +585,22 @@ public class PlayerData {
         this.nightEventsXpGained = nightEventsXpGained;
     }
 
+    public long getBuildXpGained() {
+        return buildXpGained;
+    }
+
+    public void setBuildXpGained(long buildXpGained) {
+        this.buildXpGained = buildXpGained;
+    }
+
+    public String getLastUpdateMessageVersion() {
+        return lastUpdateMessageVersion;
+    }
+
+    public void setLastUpdateMessageVersion(String lastUpdateMessageVersion) {
+        this.lastUpdateMessageVersion = lastUpdateMessageVersion;
+    }
+
     public long getBiomesXpGained() {
         return biomesXpGained;
     }
@@ -596,5 +647,13 @@ public class PlayerData {
 
     public void setDeathChestEnabled(boolean deathChestEnabled) {
         this.deathChestEnabled = deathChestEnabled;
+    }
+
+    public String getStatDisplayType() {
+        return statDisplayType;
+    }
+
+    public void setStatDisplayType(String statDisplayType) {
+        this.statDisplayType = statDisplayType;
     }
 }

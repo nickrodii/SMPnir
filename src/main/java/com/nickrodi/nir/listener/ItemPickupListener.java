@@ -5,6 +5,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -38,45 +41,87 @@ public class ItemPickupListener implements Listener {
             return;
         }
 
-        Material type = event.getItem().getItemStack().getType();
+        ItemStack stack = event.getItem().getItemStack();
+        if (handleDisc(player, stack)) {
+            event.getItem().setItemStack(stack);
+        }
+    }
 
-        // Disc collection XP
-        if (type.isRecord()) {
-            ItemMeta meta = event.getItem().getItemStack().getItemMeta();
-            if (meta != null) {
-                PersistentDataContainer metaData = meta.getPersistentDataContainer();
-                if (metaData.has(Keys.DISC_COLLECTED, PersistentDataType.BYTE)) {
-                    return;
-                }
+    @EventHandler(ignoreCancelled = true)
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) {
+            return;
+        }
+        if (!worldAccess.isAllowed(player)) {
+            return;
+        }
+        scanInventory(player);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onJoin(PlayerJoinEvent event) {
+        if (!worldAccess.isAllowed(event.getPlayer())) {
+            return;
+        }
+        scanInventory(event.getPlayer());
+    }
+
+    private void scanInventory(Player player) {
+        ItemStack[] items = player.getInventory().getContents();
+        for (int i = 0; i < items.length; i++) {
+            ItemStack stack = items[i];
+            if (stack == null || !stack.getType().isRecord()) {
+                continue;
             }
-
-            var data = progressionService.getData(player.getUniqueId());
-            var discs = data.getDiscsFound();
-            if (discs == null) {
-                discs = new java.util.ArrayList<>();
-            }
-
-            String id = type.getKey().toString();
-            if (!discs.contains(id)) {
-                discs.add(id);
-                data.setDiscsFound(discs);
-
-                String name = type.getKey().getKey().replace('_', ' ');
-                DiscCollectionCatalog.DiscEntry entry = DiscCollectionCatalog.byMaterial(type);
-                if (entry != null) {
-                    name = entry.displayName();
-                }
-                String label = toTitleCase(name);
-                progressionService.addXp(player.getUniqueId(), 600, "\"" + label + "\" added to Discs collection");
-            }
-
-            if (meta != null) {
-                meta.getPersistentDataContainer().set(Keys.DISC_COLLECTED, PersistentDataType.BYTE, (byte) 1);
-                var stack = event.getItem().getItemStack();
-                stack.setItemMeta(meta);
-                event.getItem().setItemStack(stack);
+            if (handleDisc(player, stack)) {
+                player.getInventory().setItem(i, stack);
             }
         }
+    }
+
+    private boolean handleDisc(Player player, ItemStack stack) {
+        if (stack == null) {
+            return false;
+        }
+        Material type = stack.getType();
+        if (!type.isRecord()) {
+            return false;
+        }
+
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            PersistentDataContainer metaData = meta.getPersistentDataContainer();
+            if (metaData.has(Keys.DISC_COLLECTED, PersistentDataType.BYTE)) {
+                return false;
+            }
+        }
+
+        var data = progressionService.getData(player.getUniqueId());
+        var discs = data.getDiscsFound();
+        if (discs == null) {
+            discs = new java.util.ArrayList<>();
+        }
+
+        String id = type.getKey().toString();
+        if (!discs.contains(id)) {
+            discs.add(id);
+            data.setDiscsFound(discs);
+
+            String name = type.getKey().getKey().replace('_', ' ');
+            DiscCollectionCatalog.DiscEntry entry = DiscCollectionCatalog.byMaterial(type);
+            if (entry != null) {
+                name = entry.displayName();
+            }
+            String label = toTitleCase(name);
+            progressionService.addXp(player.getUniqueId(), 600, "\"" + label + "\" added to Discs collection");
+        }
+
+        if (meta != null) {
+            meta.getPersistentDataContainer().set(Keys.DISC_COLLECTED, PersistentDataType.BYTE, (byte) 1);
+            stack.setItemMeta(meta);
+            return true;
+        }
+        return false;
     }
 
     private String toTitleCase(String input) {

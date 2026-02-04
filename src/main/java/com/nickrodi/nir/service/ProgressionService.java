@@ -18,6 +18,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -32,9 +34,13 @@ public class ProgressionService {
     private final HungerService hungerService;
     private final Map<UUID, PlayerData> cache = new HashMap<>();
     private final Set<UUID> debugEnabled = new HashSet<>();
+    private final Set<UUID> globalXpDebugEnabled = new HashSet<>();
     private final Map<UUID, PendingXpBar> pendingXpBars = new HashMap<>();
+    private boolean globalXpDebugConsole = false;
+    private boolean updateNotesDebug = false;
     private static final long XP_ACTIONBAR_STACK_WINDOW_TICKS = 20L * 3L;
     private static final long BIG_XP_THRESHOLD = 1000L;
+    private static final long VANILLA_XP_DAILY_CAP = 5000L;
     private static final TextColor BIG_XP_GRADIENT_START = TextColor.color(0xD24CFF);
     private static final TextColor BIG_XP_GRADIENT_END = TextColor.color(0x7B2CFF);
     private static final TextColor XP_GRADIENT_START = TextColor.color(0xDDAA00);
@@ -64,6 +70,7 @@ public class ProgressionService {
     public void remove(UUID uuid) {
         cache.remove(uuid);
         debugEnabled.remove(uuid);
+        globalXpDebugEnabled.remove(uuid);
         PendingXpBar pending = pendingXpBars.remove(uuid);
         if (pending != null && pending.task != null) {
             pending.task.cancel();
@@ -114,6 +121,7 @@ public class ProgressionService {
         }
 
         sendDebug(uuid, amount, reason);
+        sendGlobalXpDebug(uuid, amount, reason);
         if (reason == null || !reason.equalsIgnoreCase("playtime")) {
             queueXpActionBar(uuid, amount, reason);
         }
@@ -132,6 +140,27 @@ public class ProgressionService {
         }
         long minutes = getSurvivalMinutes(data);
         return Math.max(0.0, minutes / 60.0);
+    }
+
+    public int addVanillaXp(UUID uuid, int spent) {
+        if (spent <= 0) {
+            return 0;
+        }
+        PlayerData data = getData(uuid);
+        long today = LocalDate.now(ZoneId.systemDefault()).toEpochDay();
+        if (data.getVanillaXpDay() != today) {
+            data.setVanillaXpDay(today);
+            data.setVanillaXpDaily(0L);
+        }
+        long remaining = VANILLA_XP_DAILY_CAP - data.getVanillaXpDaily();
+        long awarded = remaining > 0 ? Math.min(remaining, spent) : 0L;
+        data.setVanillaXpSpent(data.getVanillaXpSpent() + spent);
+        if (awarded > 0) {
+            data.setVanillaXpDaily(data.getVanillaXpDaily() + awarded);
+            data.setVanillaXpGained(data.getVanillaXpGained() + awarded);
+            addXp(uuid, awarded, "vanilla-xp");
+        }
+        return (int) awarded;
     }
 
     public long getSurvivalMinutes(PlayerData data) {
@@ -182,6 +211,7 @@ public class ProgressionService {
         if (delta > 0) {
             sendDebug(uuid, delta, reason);
         }
+        sendGlobalXpDebug(uuid, delta, reason);
 
         return newLevel - oldLevel;
     }
@@ -197,6 +227,29 @@ public class ProgressionService {
 
     public boolean isDebugEnabled(UUID uuid) {
         return debugEnabled.contains(uuid);
+    }
+
+    public boolean toggleGlobalXpDebug(UUID uuid) {
+        if (globalXpDebugEnabled.contains(uuid)) {
+            globalXpDebugEnabled.remove(uuid);
+            return false;
+        }
+        globalXpDebugEnabled.add(uuid);
+        return true;
+    }
+
+    public boolean toggleGlobalXpDebugConsole() {
+        globalXpDebugConsole = !globalXpDebugConsole;
+        return globalXpDebugConsole;
+    }
+
+    public boolean isUpdateNotesDebug() {
+        return updateNotesDebug;
+    }
+
+    public boolean toggleUpdateNotesDebug() {
+        updateNotesDebug = !updateNotesDebug;
+        return updateNotesDebug;
     }
 
     private void queueXpActionBar(UUID uuid, long amount, String reason) {
@@ -276,6 +329,38 @@ public class ProgressionService {
         if (player != null) {
             String safeReason = (reason == null || reason.isBlank()) ? "unknown" : reason;
             player.sendMessage("XP +" + amount + " (" + safeReason + ")");
+        }
+    }
+
+    private void sendGlobalXpDebug(UUID targetUuid, long delta, String reason) {
+        if (delta == 0L) {
+            return;
+        }
+        if (globalXpDebugEnabled.isEmpty() && !globalXpDebugConsole) {
+            return;
+        }
+        String safeReason = (reason == null || reason.isBlank()) ? "unknown" : reason;
+        String sign = delta > 0 ? "+" : "";
+        String name = null;
+        Player target = Bukkit.getPlayer(targetUuid);
+        if (target != null) {
+            name = target.getName();
+        } else {
+            var offline = Bukkit.getOfflinePlayer(targetUuid);
+            name = offline.getName();
+        }
+        if (name == null || name.isBlank()) {
+            name = targetUuid.toString();
+        }
+        String message = "XP " + sign + delta + " (" + safeReason + ") -> " + name;
+        for (UUID watcher : globalXpDebugEnabled) {
+            Player player = Bukkit.getPlayer(watcher);
+            if (player != null) {
+                player.sendMessage(message);
+            }
+        }
+        if (globalXpDebugConsole) {
+            plugin.getLogger().info(message);
         }
     }
 

@@ -37,7 +37,13 @@ public class StatDisplayService {
         if (player == null) {
             return;
         }
-        selections.putIfAbsent(player.getUniqueId(), StatDisplayType.PLAYTIME);
+        PlayerData data = progressionService.getData(player.getUniqueId());
+        StatDisplayType stored = StatDisplayType.fromId(data.getStatDisplayType());
+        if (stored == null) {
+            stored = StatDisplayType.PLAYTIME;
+            data.setStatDisplayType(stored.id());
+        }
+        selections.putIfAbsent(player.getUniqueId(), stored);
     }
 
     public void setDisplay(Player player, StatDisplayType type) {
@@ -45,6 +51,8 @@ public class StatDisplayService {
             return;
         }
         selections.put(player.getUniqueId(), type);
+        PlayerData data = progressionService.getData(player.getUniqueId());
+        data.setStatDisplayType(type.id());
         refreshAll();
     }
 

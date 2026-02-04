@@ -64,6 +64,8 @@ public class StorageService {
         long tradeXpGained = config.getLong("tradeXpGained", 0L);
         long vanillaXpSpent = config.getLong("vanillaXpSpent", 0L);
         long vanillaXpGained = config.getLong("vanillaXpGained", 0L);
+        long vanillaXpDay = config.getLong("vanillaXpDay", 0L);
+        long vanillaXpDaily = config.getLong("vanillaXpDaily", 0L);
         long advancementsDone = config.getLong("advancementsDone", 0L);
         long advancementsXpGained = config.getLong("advancementsXpGained", 0L);
         long questsDone = config.getLong("questsDone", 0L);
@@ -74,10 +76,13 @@ public class StorageService {
         java.util.List<String> fishingItemsFound = config.getStringList("fishingItemsFound");
         long nightEventsFound = config.getLong("nightEventsFound", 0L);
         long nightEventsXpGained = config.getLong("nightEventsXpGained", 0L);
+        long buildXpGained = config.getLong("buildXpGained", 0L);
+        String lastUpdateMessageVersion = config.getString("lastUpdateMessageVersion", null);
         long biomesXpGained = config.getLong("biomesXpGained", 0L);
         long structureChestsXpGained = config.getLong("structureChestsXpGained", 0L);
         long enchantsXpGained = config.getLong("enchantsXpGained", 0L);
         boolean deathChestEnabled = config.getBoolean("deathChestEnabled", true);
+        String statDisplayType = config.getString("statDisplayType", null);
         List<String> discsFound = config.getStringList("discsFound");
         List<String> bestiaryFound = config.getStringList("bestiaryFound");
 
@@ -117,6 +122,8 @@ public class StorageService {
         data.setTradeXpGained(tradeXpGained);
         data.setVanillaXpSpent(vanillaXpSpent);
         data.setVanillaXpGained(vanillaXpGained);
+        data.setVanillaXpDay(vanillaXpDay);
+        data.setVanillaXpDaily(vanillaXpDaily);
         data.setAdvancementsDone(advancementsDone);
         data.setAdvancementsXpGained(advancementsXpGained);
         data.setQuestsDone(questsDone);
@@ -127,10 +134,13 @@ public class StorageService {
         data.setFishingItemsFound(fishingItemsFound);
         data.setNightEventsFound(nightEventsFound);
         data.setNightEventsXpGained(nightEventsXpGained);
+        data.setBuildXpGained(buildXpGained);
+        data.setLastUpdateMessageVersion(lastUpdateMessageVersion);
         data.setBiomesXpGained(biomesXpGained);
         data.setStructureChestsXpGained(structureChestsXpGained);
         data.setEnchantsXpGained(enchantsXpGained);
         data.setDeathChestEnabled(deathChestEnabled);
+        data.setStatDisplayType(statDisplayType);
         if (discsFound != null && !discsFound.isEmpty()) {
             data.setDiscsFound(discsFound);
         }
@@ -219,6 +229,8 @@ public class StorageService {
         config.set("tradeXpGained", data.getTradeXpGained());
         config.set("vanillaXpSpent", data.getVanillaXpSpent());
         config.set("vanillaXpGained", data.getVanillaXpGained());
+        config.set("vanillaXpDay", data.getVanillaXpDay());
+        config.set("vanillaXpDaily", data.getVanillaXpDaily());
         config.set("advancementsDone", data.getAdvancementsDone());
         config.set("advancementsXpGained", data.getAdvancementsXpGained());
         config.set("questsDone", data.getQuestsDone());
@@ -229,10 +241,17 @@ public class StorageService {
         config.set("fishingItemsFound", data.getFishingItemsFound());
         config.set("nightEventsFound", data.getNightEventsFound());
         config.set("nightEventsXpGained", data.getNightEventsXpGained());
+        config.set("buildXpGained", data.getBuildXpGained());
+        if (data.getLastUpdateMessageVersion() != null && !data.getLastUpdateMessageVersion().isBlank()) {
+            config.set("lastUpdateMessageVersion", data.getLastUpdateMessageVersion());
+        }
         config.set("biomesXpGained", data.getBiomesXpGained());
         config.set("structureChestsXpGained", data.getStructureChestsXpGained());
         config.set("enchantsXpGained", data.getEnchantsXpGained());
         config.set("deathChestEnabled", data.isDeathChestEnabled());
+        if (data.getStatDisplayType() != null && !data.getStatDisplayType().isBlank()) {
+            config.set("statDisplayType", data.getStatDisplayType());
+        }
 
         List<String> cosmeticsUnlocked = data.getCosmeticsUnlocked();
         if (cosmeticsUnlocked != null && !cosmeticsUnlocked.isEmpty()) {

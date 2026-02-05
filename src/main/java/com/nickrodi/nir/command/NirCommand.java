@@ -89,6 +89,9 @@ public class NirCommand implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (sender instanceof Player player && !player.hasPermission("smpnir.admin")) {
+            return List.of();
+        }
         List<String> primary = List.of("user", "debug", "calc");
         List<String> userSubs = List.of("xp", "level", "collections", "statistics", "stats", "rule", "quest");
         if (args.length == 1) {

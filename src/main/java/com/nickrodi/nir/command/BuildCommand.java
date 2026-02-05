@@ -54,6 +54,8 @@ public class BuildCommand implements TabExecutor {
             case "submissions" -> handleSubmissions(sender);
             case "history" -> handleHistory(sender, args);
             case "grade" -> handleGrade(sender, args);
+            case "ungrade" -> handleUngrade(sender, args);
+            case "remove" -> handleRemove(sender, args);
             case "xp" -> handleXp(sender);
             case "list" -> handleList(sender);
             case "claim" -> handleClaim(sender, args);
@@ -64,12 +66,40 @@ public class BuildCommand implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> subs = List.of("submit", "groupsubmit", "list", "claim", "submissions", "history", "grade", "xp");
+        List<String> subs = new ArrayList<>(List.of("submit", "groupsubmit", "list", "claim", "history", "xp"));
+        if (isAdmin(sender)) {
+            subs.addAll(List.of("submissions", "grade", "ungrade", "remove"));
+        }
         if (args.length == 1) {
             return filter(subs, args[0]);
         }
-        if (args.length == 2 && ("claim".equalsIgnoreCase(args[0]) || "grade".equalsIgnoreCase(args[0]))) {
-            return filter(buildIds(), args[1]);
+        if (args.length == 2) {
+            String sub = args[0].toLowerCase(Locale.ROOT);
+            switch (sub) {
+                case "claim" -> {
+                    return filter(gradedBuildIds(), args[1]);
+                }
+                case "grade" -> {
+                    if (!isAdmin(sender)) {
+                        return List.of();
+                    }
+                    return filter(pendingBuildIds(), args[1]);
+                }
+                case "ungrade" -> {
+                    if (!isAdmin(sender)) {
+                        return List.of();
+                    }
+                    return filter(gradedBuildIds(), args[1]);
+                }
+                case "remove" -> {
+                    if (!isAdmin(sender)) {
+                        return List.of();
+                    }
+                    return filter(pendingBuildIds(), args[1]);
+                }
+                default -> {
+                }
+            }
         }
         if (args.length == 2 && "history".equalsIgnoreCase(args[0]) && isAdmin(sender)) {
             return filter(onlinePlayerNames(), args[1]);
@@ -239,6 +269,63 @@ public class BuildCommand implements TabExecutor {
         notifyParticipants(graded);
     }
 
+    private void handleUngrade(CommandSender sender, String[] args) {
+        if (!isAdmin(sender)) {
+            sender.sendMessage("You do not have permission to use this command.");
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /build ungrade <id>");
+            return;
+        }
+        String id = args[1].trim();
+        BuildSubmission submission = buildReviewService.get(id);
+        if (submission == null) {
+            sender.sendMessage("Build not found: " + id);
+            return;
+        }
+        if (submission.status() != BuildStatus.GRADED) {
+            sender.sendMessage("Build is not graded: " + submission.id());
+            return;
+        }
+        long removed = removeClaimedXp(submission);
+        if (!buildReviewService.ungrade(id)) {
+            sender.sendMessage("Failed to ungrade build: " + id);
+            return;
+        }
+        if (removed > 0L) {
+            sender.sendMessage("Build " + id + " returned to pending. Removed " + removed + " XP from claimed players.");
+        } else {
+            sender.sendMessage("Build " + id + " returned to pending.");
+        }
+    }
+
+    private void handleRemove(CommandSender sender, String[] args) {
+        if (!isAdmin(sender)) {
+            sender.sendMessage("You do not have permission to use this command.");
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /build remove <id>");
+            return;
+        }
+        String id = args[1].trim();
+        BuildSubmission submission = buildReviewService.get(id);
+        if (submission == null) {
+            sender.sendMessage("Build not found: " + id);
+            return;
+        }
+        if (submission.status() == BuildStatus.GRADED) {
+            sender.sendMessage("Build already graded: " + submission.id());
+            return;
+        }
+        if (!buildReviewService.removePending(id)) {
+            sender.sendMessage("Failed to remove build: " + id);
+            return;
+        }
+        sender.sendMessage("Build " + id + " removed.");
+    }
+
     private void handleList(CommandSender sender) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Only players can use /build list.");
@@ -402,6 +489,8 @@ public class BuildCommand implements TabExecutor {
             sender.sendMessage("/build submissions - list builds waiting for review (admin)");
             sender.sendMessage("/build history <player> - view a player's claimed build history (admin)");
             sender.sendMessage("/build grade <id> <xp> - grade a build (admin)");
+            sender.sendMessage("/build ungrade <id> - return a graded build to pending (admin)");
+            sender.sendMessage("/build remove <id> - remove a pending build (admin)");
         }
     }
 
@@ -491,15 +580,53 @@ public class BuildCommand implements TabExecutor {
         return names;
     }
 
-    private List<String> buildIds() {
+    private List<String> pendingBuildIds() {
         List<String> ids = new ArrayList<>();
         for (BuildSubmission submission : buildReviewService.listPending()) {
             ids.add(submission.id());
         }
+        return ids;
+    }
+
+    private List<String> gradedBuildIds() {
+        List<String> ids = new ArrayList<>();
         for (BuildSubmission submission : buildReviewService.listGraded()) {
             ids.add(submission.id());
         }
         return ids;
+    }
+
+    private long removeClaimedXp(BuildSubmission submission) {
+        if (submission == null || submission.status() != BuildStatus.GRADED) {
+            return 0L;
+        }
+        long removed = 0L;
+        for (BuildParticipant participant : submission.participants()) {
+            UUID uuid = participant.uuid();
+            if (!submission.isClaimed(uuid)) {
+                continue;
+            }
+            long share = submission.shareFor(uuid);
+            if (share <= 0L) {
+                continue;
+            }
+            removeXpFromPlayer(uuid, share);
+            removed += share;
+        }
+        return removed;
+    }
+
+    private void removeXpFromPlayer(UUID uuid, long amount) {
+        if (uuid == null || amount <= 0L) {
+            return;
+        }
+        var data = progressionService.getData(uuid);
+        long current = data.getTotalXp();
+        long newTotal = Math.max(0L, current - amount);
+        progressionService.setTotalXp(uuid, newTotal, "build-ungrade");
+        long buildXp = data.getBuildXpGained();
+        data.setBuildXpGained(Math.max(0L, buildXp - amount));
+        progressionService.save(uuid);
     }
 
     private List<String> onlinePlayerNames() {

@@ -97,24 +97,41 @@ public class NirPlugin extends JavaPlugin {
         levelCurve = new LevelCurve();
         storageService = new StorageService(this);
         worldAccess = new WorldAccess(this);
-        healthService = new HealthService(worldAccess);
-        int minFood = getConfig().getInt("hunger.min-food", 20);
-        int maxFood = getConfig().getInt("hunger.max-food", 20);
-        hungerService = new HungerService(worldAccess, minFood, maxFood);
+        boolean deathChestEnabled = getConfig().getBoolean("death-chest.enabled", true);
+        boolean sleepVoteEnabled = getConfig().getBoolean("sleep-vote.enabled", true);
+        boolean buildEnabled = getConfig().getBoolean("build.enabled", true);
+        int minHearts = getConfig().getInt("health.min-hearts", 8);
+        int maxHearts = getConfig().getInt("health.max-hearts", 20);
+        healthService = new HealthService(worldAccess, minHearts, maxHearts);
+        int minFood = 20;
+        int maxFood = 20;
+        int effectiveMin = getConfig().contains("hunger.effective-min")
+                ? getConfig().getInt("hunger.effective-min", minFood)
+                : minFood;
+        int effectiveMax = getConfig().contains("hunger.effective-max")
+                ? getConfig().getInt("hunger.effective-max", maxFood * 4)
+                : maxFood * 4;
+        hungerService = new HungerService(worldAccess, minFood, maxFood, effectiveMin, effectiveMax);
         progressionService = new ProgressionService(this, levelCurve, storageService, healthService, hungerService);
         questService = new QuestService(progressionService);
         boardService = new BoardService(this);
         boardService.load();
-        deathChestService = new DeathChestService(this, worldAccess);
-        deathChestService.start();
-        sleepVoteService = new SleepVoteService(this, worldAccess);
+        if (deathChestEnabled) {
+            deathChestService = new DeathChestService(this, worldAccess);
+            deathChestService.start();
+        }
+        if (sleepVoteEnabled) {
+            sleepVoteService = new SleepVoteService(this, worldAccess);
+        }
         questBookService = new QuestBookService(progressionService, levelCurve, healthService, hungerService, questService);
         statsMenuService = new StatsMenuService();
         collectionsMenuService = new CollectionsMenuService();
         chatFormatService = new ChatFormatService(progressionService);
         statDisplayService = new StatDisplayService(progressionService);
-        buildReviewService = new BuildReviewService(this);
-        buildReviewService.load();
+        if (buildEnabled) {
+            buildReviewService = new BuildReviewService(this);
+            buildReviewService.load();
+        }
         tabListService = new TabListService(progressionService, levelCurve);
         activityService = new ActivityService();
         welcomeService = new WelcomeService(this);
@@ -145,7 +162,8 @@ public class NirPlugin extends JavaPlugin {
                         hungerService,
                         statDisplayService,
                         welcomeService,
-                        buildReviewService
+                        buildReviewService,
+                        buildEnabled
                 ),
                 this
         );
@@ -185,10 +203,12 @@ public class NirPlugin extends JavaPlugin {
                 new PlayerDeathListener(progressionService, questService, worldAccess),
                 this
         );
-        getServer().getPluginManager().registerEvents(
-                new DeathChestListener(deathChestService, worldAccess, progressionService),
-                this
-        );
+        if (deathChestEnabled && deathChestService != null) {
+            getServer().getPluginManager().registerEvents(
+                    new DeathChestListener(deathChestService, worldAccess, progressionService),
+                    this
+            );
+        }
         getServer().getPluginManager().registerEvents(
                 new PlayerFishListener(progressionService, worldAccess),
                 this
@@ -249,10 +269,12 @@ public class NirPlugin extends JavaPlugin {
                 new ChatFormatListener(chatFormatService),
                 this
         );
-        getServer().getPluginManager().registerEvents(
-                new SleepVoteListener(sleepVoteService, worldAccess),
-                this
-        );
+        if (sleepVoteEnabled && sleepVoteService != null) {
+            getServer().getPluginManager().registerEvents(
+                    new SleepVoteListener(sleepVoteService, worldAccess),
+                    this
+            );
+        }
 
         getServer().getScheduler().runTaskTimer(
                 this,
@@ -301,9 +323,16 @@ public class NirPlugin extends JavaPlugin {
 
         PluginCommand buildCommand = getCommand("build");
         if (buildCommand != null) {
-            BuildCommand buildExecutor = new BuildCommand(buildReviewService, progressionService);
-            buildCommand.setExecutor(buildExecutor);
-            buildCommand.setTabCompleter(buildExecutor);
+            if (buildEnabled && buildReviewService != null) {
+                BuildCommand buildExecutor = new BuildCommand(buildReviewService, progressionService);
+                buildCommand.setExecutor(buildExecutor);
+                buildCommand.setTabCompleter(buildExecutor);
+            } else {
+                buildCommand.setExecutor((sender, command, label, args) -> {
+                    sender.sendMessage("Builds are disabled in the config.");
+                    return true;
+                });
+            }
         } else {
             getLogger().log(Level.WARNING, () -> "Command 'build' not found in plugin.yml.");
         }
@@ -334,7 +363,14 @@ public class NirPlugin extends JavaPlugin {
 
         PluginCommand sleepVoteCommand = getCommand("sleepvote");
         if (sleepVoteCommand != null) {
-            sleepVoteCommand.setExecutor(new SleepVoteCommand(sleepVoteService));
+            if (sleepVoteEnabled && sleepVoteService != null) {
+                sleepVoteCommand.setExecutor(new SleepVoteCommand(sleepVoteService));
+            } else {
+                sleepVoteCommand.setExecutor((sender, command, label, args) -> {
+                    sender.sendMessage("Sleep vote is disabled in the config.");
+                    return true;
+                });
+            }
         } else {
             getLogger().log(Level.WARNING, () -> "Command 'sleepvote' not found in plugin.yml.");
         }

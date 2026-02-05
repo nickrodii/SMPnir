@@ -16,9 +16,18 @@ public class HealthService {
     private static final Component HEALTH_INCREASED = Component.text("Health increased!", NamedTextColor.GOLD);
 
     private final WorldAccess worldAccess;
+    private final int minHearts;
+    private final int maxHearts;
 
-    public HealthService(WorldAccess worldAccess) {
+    public HealthService(WorldAccess worldAccess, int minHearts, int maxHearts) {
         this.worldAccess = worldAccess;
+        int clampedMin = Math.max(1, minHearts);
+        int clampedMax = Math.max(1, maxHearts);
+        if (clampedMax < clampedMin) {
+            clampedMax = clampedMin;
+        }
+        this.minHearts = clampedMin;
+        this.maxHearts = clampedMax;
     }
 
     public void apply(Player player, int oldLevel, int newLevel) {
@@ -75,13 +84,13 @@ public class HealthService {
     public int heartsForLevel(int level) {
         int clamped = Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, level));
         if (clamped <= MIN_LEVEL) {
-            return 8;
+            return minHearts;
         }
         if (clamped >= MAX_LEVEL) {
-            return 20;
+            return maxHearts;
         }
         double t = (clamped - MIN_LEVEL) / (double) (MAX_LEVEL - MIN_LEVEL);
-        return 8 + (int) Math.floor(12.0 * t);
+        return minHearts + (int) Math.floor((maxHearts - minHearts) * t);
     }
 
     private boolean setMaxHealth(Player player, double maxHealth) {

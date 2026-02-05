@@ -1,7 +1,7 @@
 name: SMPnir
-version: 0.1.4
+version: 0.1.5-beta
 main: com.nickrodi.nir.NirPlugin
-api-version: "1.21.11"
+api-version: "1.21"
 
 commands:
   nir:
@@ -17,7 +17,7 @@ commands:
 
   build:
     description: Submit builds for manual review.
-    usage: /build <submit|groupsubmit|list|claim|submissions|history|grade>
+    usage: /build <submit|groupsubmit|list|claim|submissions|history|grade|ungrade|remove>
     permission: smpnir.use
 
   questbook:

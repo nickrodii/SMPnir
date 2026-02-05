@@ -21,10 +21,11 @@ import com.nickrodi.nir.service.WelcomeService;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
 public class PlayerJoinListener implements Listener {
-    private static final String UPDATE_MESSAGE_VERSION = "0.1.4";
+    private static final String UPDATE_MESSAGE_VERSION = "0.1.5";
     private final JavaPlugin plugin;
     private final StorageService storageService;
     private final ProgressionService progressionService;
@@ -34,6 +35,7 @@ public class PlayerJoinListener implements Listener {
     private final StatDisplayService statDisplayService;
     private final WelcomeService welcomeService;
     private final BuildReviewService buildReviewService;
+    private final boolean buildEnabled;
 
     public PlayerJoinListener(
             JavaPlugin plugin,
@@ -44,7 +46,8 @@ public class PlayerJoinListener implements Listener {
             HungerService hungerService,
             StatDisplayService statDisplayService,
             WelcomeService welcomeService,
-            BuildReviewService buildReviewService
+            BuildReviewService buildReviewService,
+            boolean buildEnabled
     ) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.storageService = storageService;
@@ -54,7 +57,8 @@ public class PlayerJoinListener implements Listener {
         this.hungerService = hungerService;
         this.statDisplayService = statDisplayService;
         this.welcomeService = Objects.requireNonNull(welcomeService, "welcomeService");
-        this.buildReviewService = Objects.requireNonNull(buildReviewService, "buildReviewService");
+        this.buildReviewService = buildReviewService;
+        this.buildEnabled = buildEnabled;
     }
 
     @EventHandler
@@ -82,24 +86,29 @@ public class PlayerJoinListener implements Listener {
             hungerService.apply(event.getPlayer(), data.getLevel());
         });
         activityService.setLastActiveAt(event.getPlayer().getUniqueId(), System.currentTimeMillis());
-        if (buildReviewService.hasUnclaimed(event.getPlayer().getUniqueId())) {
-            event.getPlayer().sendMessage(Component.text(
-                    "You have unclaimed build rewards! Use /build list to claim.",
-                    NamedTextColor.YELLOW
-            ));
-        }
-        if (event.getPlayer().hasPermission("smpnir.admin")) {
-            int pending = buildReviewService.listPending().size();
-            if (pending > 0) {
-                event.getPlayer().sendMessage("There are " + pending + " build submissions waiting for review. Use /build submissions.");
+        if (buildEnabled && buildReviewService != null) {
+            if (buildReviewService.hasUnclaimed(event.getPlayer().getUniqueId())) {
+                event.getPlayer().sendMessage(Component.text(
+                        "You have unclaimed build rewards! Use /build list to claim.",
+                        NamedTextColor.YELLOW
+                ));
             }
-        }
-        if (event.getPlayer().hasPlayedBefore()) {
-            maybeSendUpdateMessage(event.getPlayer(), data);
+            if (event.getPlayer().hasPermission("smpnir.admin")) {
+                int pending = buildReviewService.listPending().size();
+                if (pending > 0) {
+                    event.getPlayer().sendMessage("There are " + pending + " build submissions waiting for review. Use /build submissions.");
+                }
+            }
+            if (event.getPlayer().hasPlayedBefore()) {
+                maybeSendUpdateMessage(event.getPlayer(), data);
+            }
         }
     }
 
     private void maybeSendUpdateMessage(org.bukkit.entity.Player player, PlayerData data) {
+        if (!buildEnabled) {
+            return;
+        }
         if (player == null || data == null) {
             return;
         }
@@ -109,28 +118,17 @@ public class PlayerJoinListener implements Listener {
                 return;
             }
         }
-        Component header = Component.text("SMPnir 0.1.4 UPDATE NOTES", NamedTextColor.AQUA, TextDecoration.BOLD);
+        Component header = Component.text()
+                .append(Component.text("SMP", NamedTextColor.WHITE, TextDecoration.BOLD))
+                .append(gradientText("nir", TextColor.color(0xE9DCFF), TextColor.color(0xD9F1FF), TextDecoration.BOLD))
+                .append(Component.text(" 0.1.5 UPDATE NOTES", NamedTextColor.AQUA, TextDecoration.BOLD))
+                .build();
         Component divider = Component.text("----", NamedTextColor.DARK_GRAY);
-        Component line1 = Component.text("You can now get XP from building!", NamedTextColor.GREEN);
-        Component line2 = Component.text("Use ", NamedTextColor.GRAY)
-                .append(Component.text("/build submit <id>", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text(" or ", NamedTextColor.GRAY))
-                .append(Component.text("/build groupsubmit <id> <players>", NamedTextColor.YELLOW, TextDecoration.BOLD));
-        Component line3 = Component.text("When evaluated, claim with ", NamedTextColor.GRAY)
-                .append(Component.text("/build list", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text(" (click CLAIM).", NamedTextColor.GRAY));
-        Component line4 = Component.text("Check total build XP with ", NamedTextColor.GRAY)
-                .append(Component.text("/build xp", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text(".", NamedTextColor.GRAY));
+        Component line1 = Component.text("Bug fixes and admin QoL changes", NamedTextColor.GREEN);
         player.sendMessage(header);
         player.sendMessage(divider);
         player.sendMessage(Component.text(" "));
         player.sendMessage(line1);
-        player.sendMessage(Component.text(" "));
-        player.sendMessage(line2);
-        player.sendMessage(line3);
-        player.sendMessage(Component.text(" "));
-        player.sendMessage(line4);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.3f);
         if (!progressionService.isUpdateNotesDebug()) {
             data.setLastUpdateMessageVersion(UPDATE_MESSAGE_VERSION);
@@ -172,5 +170,27 @@ public class PlayerJoinListener implements Listener {
             }
         }
         return out;
+    }
+
+    private Component gradientText(String text, TextColor start, TextColor end, TextDecoration... decorations) {
+        net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
+        int len = text.length();
+        int startRgb = start.value();
+        int endRgb = end.value();
+        int startR = (startRgb >> 16) & 0xFF;
+        int startG = (startRgb >> 8) & 0xFF;
+        int startB = startRgb & 0xFF;
+        int endR = (endRgb >> 16) & 0xFF;
+        int endG = (endRgb >> 8) & 0xFF;
+        int endB = endRgb & 0xFF;
+        for (int i = 0; i < len; i++) {
+            double t = len <= 1 ? 0.0 : (double) i / (len - 1);
+            int r = (int) Math.round(startR + (endR - startR) * t);
+            int g = (int) Math.round(startG + (endG - startG) * t);
+            int b = (int) Math.round(startB + (endB - startB) * t);
+            TextColor color = TextColor.color(r, g, b);
+            builder.append(Component.text(String.valueOf(text.charAt(i)), color, decorations));
+        }
+        return builder.build();
     }
 }

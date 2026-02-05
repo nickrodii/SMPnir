@@ -97,6 +97,26 @@ public class BuildReviewService {
         return true;
     }
 
+    public boolean ungrade(String id) {
+        BuildSubmission submission = get(id);
+        if (submission == null || submission.status != BuildStatus.GRADED) {
+            return false;
+        }
+        submission.ungrade();
+        save();
+        return true;
+    }
+
+    public boolean removePending(String id) {
+        BuildSubmission submission = get(id);
+        if (submission == null || submission.status != BuildStatus.PENDING) {
+            return false;
+        }
+        submissions.remove(normalize(id));
+        save();
+        return true;
+    }
+
     public ClaimResult claim(String id, UUID player) {
         BuildSubmission submission = get(id);
         if (submission == null) {
@@ -362,6 +382,20 @@ public class BuildReviewService {
             if (this.claimed == null) {
                 this.claimed = new HashSet<>();
             }
+        }
+
+        private void ungrade() {
+            this.status = BuildStatus.PENDING;
+            this.gradedAt = 0L;
+            this.xpTotal = 0L;
+            this.shares = new HashMap<>();
+            if (this.claimed != null) {
+                this.claimed.clear();
+            } else {
+                this.claimed = new HashSet<>();
+            }
+            this.gradedBy = null;
+            this.gradedByName = null;
         }
 
         public String participantsLabel() {

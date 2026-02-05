@@ -1,7 +1,15 @@
 worlds:
   base: world
+health:
+  min-hearts: 8
+  max-hearts: 20
 hunger:
-  min-food: 20
-  max-food: 20
+  effective-min: 20
+  effective-max: 80
+sleep-vote:
+  enabled: true
+build:
+  enabled: true
 death-chest:
+  enabled: true
   burn-minutes: 30

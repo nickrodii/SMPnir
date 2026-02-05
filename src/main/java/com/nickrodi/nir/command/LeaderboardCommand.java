@@ -64,7 +64,7 @@ public class LeaderboardCommand implements CommandExecutor {
         int shown = Math.min(limit, entries.size());
         Component header = gradientText("=== TOP PLAYERS ===", TITLE_GRADIENT_START, TITLE_GRADIENT_END)
                 .decorate(TextDecoration.BOLD);
-        broadcast(header);
+        sendTo(sender, header);
 
         for (int i = 0; i < shown; i++) {
             LeaderboardEntry entry = entries.get(i);
@@ -73,11 +73,11 @@ public class LeaderboardCommand implements CommandExecutor {
                     .append(Component.text(String.format(Locale.US, "%2d. ", i + 1), NamedTextColor.GRAY))
                     .append(displayName)
                     .build();
-            broadcast(line);
+            sendTo(sender, line);
 
             double progress = levelCurve.getProgress(entry.level(), entry.totalXp());
             Component bar = progressBar(progress);
-            broadcast(bar);
+            sendTo(sender, bar);
         }
 
         return true;
@@ -151,9 +151,8 @@ public class LeaderboardCommand implements CommandExecutor {
         return builder.build();
     }
 
-    private void broadcast(Component message) {
-        Bukkit.getOnlinePlayers().forEach(player -> player.sendMessage(message));
-        Bukkit.getConsoleSender().sendMessage(message);
+    private void sendTo(CommandSender sender, Component message) {
+        sender.sendMessage(message);
     }
 
     private record LeaderboardEntry(UUID uuid, String name, int level, long totalXp) {

@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -90,6 +91,38 @@ public class HungerListener implements Listener {
                 }
             });
         }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onMove(PlayerMoveEvent event) {
+        if (event.getTo() == null) {
+            return;
+        }
+        if (event.getFrom().getX() == event.getTo().getX()
+                && event.getFrom().getY() == event.getTo().getY()
+                && event.getFrom().getZ() == event.getTo().getZ()) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (player.isSprinting() || player.isSneaking() || player.isFlying() || player.isInsideVehicle()) {
+            return;
+        }
+        int food = player.getFoodLevel();
+        if (food >= 7) {
+            return;
+        }
+        UUID uuid = player.getUniqueId();
+        int level = progressionService.getData(uuid).getLevel();
+        int minSprintFood = hungerService.minSprintFoodFor(player, level);
+        if (food < minSprintFood) {
+            return;
+        }
+        sprintAssist.add(uuid);
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (player.isOnline() && sprintAssist.contains(uuid)) {
+                player.setSprinting(true);
+            }
+        });
     }
 
     @EventHandler

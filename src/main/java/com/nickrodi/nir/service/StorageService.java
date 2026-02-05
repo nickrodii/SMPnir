@@ -85,6 +85,8 @@ public class StorageService {
         String statDisplayType = config.getString("statDisplayType", null);
         List<String> discsFound = config.getStringList("discsFound");
         List<String> bestiaryFound = config.getStringList("bestiaryFound");
+        List<String> roles = config.getStringList("roles");
+        List<String> buildSubmissionNotices = config.getStringList("buildSubmissionNotices");
 
         PlayerData data = new PlayerData(level, totalXp);
         data.setLastDeathAt(lastDeathAt);
@@ -146,6 +148,12 @@ public class StorageService {
         }
         if (bestiaryFound != null && !bestiaryFound.isEmpty()) {
             data.setBestiaryFound(bestiaryFound);
+        }
+        if (roles != null && !roles.isEmpty()) {
+            data.setRoles(roles);
+        }
+        if (buildSubmissionNotices != null && !buildSubmissionNotices.isEmpty()) {
+            data.setBuildSubmissionNotices(buildSubmissionNotices);
         }
 
         if (config.contains("cosmeticsUnlocked")) {
@@ -291,6 +299,16 @@ public class StorageService {
         List<String> bestiaryFound = data.getBestiaryFound();
         if (bestiaryFound != null && !bestiaryFound.isEmpty()) {
             config.set("bestiaryFound", bestiaryFound);
+        }
+
+        List<String> roles = data.getRoles();
+        if (roles != null && !roles.isEmpty()) {
+            config.set("roles", roles);
+        }
+
+        List<String> buildSubmissionNotices = data.getBuildSubmissionNotices();
+        if (buildSubmissionNotices != null && !buildSubmissionNotices.isEmpty()) {
+            config.set("buildSubmissionNotices", buildSubmissionNotices);
         }
 
         try {

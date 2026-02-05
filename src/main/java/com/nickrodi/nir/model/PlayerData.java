@@ -64,6 +64,8 @@ public class PlayerData {
     private List<String> bestiaryFound;
     private boolean deathChestEnabled;
     private String statDisplayType;
+    private List<String> roles;
+    private List<String> buildSubmissionNotices;
 
     public PlayerData() {
         this.level = 1;
@@ -119,6 +121,8 @@ public class PlayerData {
         this.bestiaryFound = null;
         this.deathChestEnabled = true;
         this.statDisplayType = null;
+        this.roles = null;
+        this.buildSubmissionNotices = null;
     }
 
     public PlayerData(int level, long totalXp) {
@@ -175,6 +179,8 @@ public class PlayerData {
         this.bestiaryFound = null;
         this.deathChestEnabled = true;
         this.statDisplayType = null;
+        this.roles = null;
+        this.buildSubmissionNotices = null;
     }
 
     public int getLevel() {
@@ -655,5 +661,21 @@ public class PlayerData {
 
     public void setStatDisplayType(String statDisplayType) {
         this.statDisplayType = statDisplayType;
+    }
+
+    public List<String> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(List<String> roles) {
+        this.roles = roles;
+    }
+
+    public List<String> getBuildSubmissionNotices() {
+        return buildSubmissionNotices;
+    }
+
+    public void setBuildSubmissionNotices(List<String> buildSubmissionNotices) {
+        this.buildSubmissionNotices = buildSubmissionNotices;
     }
 }

@@ -13,6 +13,7 @@ public enum StatDisplayType {
     WITHER("wither"),
     WARDEN("warden"),
     PLAYERS("players"),
+    DEATHS("deaths"),
     TRADES("trades"),
     XP_ORBS("xporbs"),
     ADVANCEMENTS("advancements"),
@@ -52,6 +53,7 @@ public enum StatDisplayType {
             case "wither" -> WITHER;
             case "warden" -> WARDEN;
             case "players", "playerkills", "player" -> PLAYERS;
+            case "deaths", "death" -> DEATHS;
             case "trades", "trade" -> TRADES;
             case "xporbs", "xp", "orbs" -> XP_ORBS;
             case "advancements", "advancement" -> ADVANCEMENTS;

@@ -2,6 +2,7 @@ package com.nickrodi.nir.listener;
 
 import com.nickrodi.nir.model.PlayerData;
 import com.nickrodi.nir.service.ActivityService;
+import com.nickrodi.nir.service.BuildReviewSessionService;
 import com.nickrodi.nir.service.ProgressionService;
 import com.nickrodi.nir.service.WorldAccess;
 import org.bukkit.Location;
@@ -30,12 +31,19 @@ public class PlayerMoveListener implements Listener {
     private final ProgressionService progressionService;
     private final ActivityService activityService;
     private final WorldAccess worldAccess;
+    private final BuildReviewSessionService reviewSessionService;
     private final Map<UUID, Biome> lastBiome = new HashMap<>();
 
-    public PlayerMoveListener(ProgressionService progressionService, ActivityService activityService, WorldAccess worldAccess) {
+    public PlayerMoveListener(
+            ProgressionService progressionService,
+            ActivityService activityService,
+            WorldAccess worldAccess,
+            BuildReviewSessionService reviewSessionService
+    ) {
         this.progressionService = progressionService;
         this.activityService = activityService;
         this.worldAccess = worldAccess;
+        this.reviewSessionService = reviewSessionService;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -53,6 +61,9 @@ public class PlayerMoveListener implements Listener {
         }
 
         Player player = event.getPlayer();
+        if (reviewSessionService != null && reviewSessionService.isReviewing(player)) {
+            return;
+        }
         UUID uuid = player.getUniqueId();
         double distance = from.distance(to);
         if (distance > 0.01) {

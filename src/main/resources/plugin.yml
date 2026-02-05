@@ -1,5 +1,5 @@
 name: SMPnir
-version: 0.1.5-beta
+version: 0.1.6-beta
 main: com.nickrodi.nir.NirPlugin
 api-version: "1.21"
 

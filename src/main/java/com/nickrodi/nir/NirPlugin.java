@@ -18,6 +18,7 @@ import com.nickrodi.nir.listener.AdvancementListener;
 import com.nickrodi.nir.listener.AnvilListener;
 import com.nickrodi.nir.listener.BestiaryListener;
 import com.nickrodi.nir.listener.BlockListener;
+import com.nickrodi.nir.listener.BuildReviewListener;
 import com.nickrodi.nir.listener.BreedTameListener;
 import com.nickrodi.nir.listener.ChatFormatListener;
 import com.nickrodi.nir.listener.CollectionsMenuListener;
@@ -44,6 +45,7 @@ import com.nickrodi.nir.service.ActivityService;
 import com.nickrodi.nir.service.BlockTrackerService;
 import com.nickrodi.nir.service.BoardService;
 import com.nickrodi.nir.service.BuildReviewService;
+import com.nickrodi.nir.service.BuildReviewSessionService;
 import com.nickrodi.nir.service.ChatFormatService;
 import com.nickrodi.nir.service.CollectionsMenuService;
 import com.nickrodi.nir.service.DeathChestService;
@@ -83,6 +85,7 @@ public class NirPlugin extends JavaPlugin {
     private ChatFormatService chatFormatService;
     private StatDisplayService statDisplayService;
     private BuildReviewService buildReviewService;
+    private BuildReviewSessionService buildReviewSessionService;
     private BoardService boardService;
     private DeathChestService deathChestService;
     private SleepVoteService sleepVoteService;
@@ -131,6 +134,7 @@ public class NirPlugin extends JavaPlugin {
         if (buildEnabled) {
             buildReviewService = new BuildReviewService(this);
             buildReviewService.load();
+            buildReviewSessionService = new BuildReviewSessionService();
         }
         tabListService = new TabListService(progressionService, levelCurve);
         activityService = new ActivityService();
@@ -180,7 +184,7 @@ public class NirPlugin extends JavaPlugin {
                 this
         );
         getServer().getPluginManager().registerEvents(
-                new PlayerMoveListener(progressionService, activityService, worldAccess),
+                new PlayerMoveListener(progressionService, activityService, worldAccess, buildReviewSessionService),
                 this
         );
         getServer().getPluginManager().registerEvents(
@@ -269,6 +273,12 @@ public class NirPlugin extends JavaPlugin {
                 new ChatFormatListener(chatFormatService),
                 this
         );
+        if (buildEnabled && buildReviewSessionService != null) {
+            getServer().getPluginManager().registerEvents(
+                    new BuildReviewListener(buildReviewSessionService),
+                    this
+            );
+        }
         if (sleepVoteEnabled && sleepVoteService != null) {
             getServer().getPluginManager().registerEvents(
                     new SleepVoteListener(sleepVoteService, worldAccess),
@@ -324,7 +334,7 @@ public class NirPlugin extends JavaPlugin {
         PluginCommand buildCommand = getCommand("build");
         if (buildCommand != null) {
             if (buildEnabled && buildReviewService != null) {
-                BuildCommand buildExecutor = new BuildCommand(buildReviewService, progressionService);
+                BuildCommand buildExecutor = new BuildCommand(buildReviewService, buildReviewSessionService, progressionService, storageService);
                 buildCommand.setExecutor(buildExecutor);
                 buildCommand.setTabCompleter(buildExecutor);
             } else {
@@ -426,6 +436,9 @@ public class NirPlugin extends JavaPlugin {
     private void awardPlaytimeXp() {
         long now = System.currentTimeMillis();
         getServer().getOnlinePlayers().forEach(player -> {
+            if (buildReviewSessionService != null && buildReviewSessionService.isReviewing(player)) {
+                return;
+            }
             if (!activityService.isActive(player.getUniqueId(), now, AFK_TIMEOUT_MS)) {
                 return;
             }

@@ -54,10 +54,6 @@ public class NirCommand implements TabExecutor {
                 handleDebug(sender, shiftArgs(args, 1));
                 return true;
             }
-            case "calc" -> {
-                handleCalc(sender, shiftArgs(args, 1));
-                return true;
-            }
             case "user" -> {
                 if (args.length < 3) {
                     sender.sendMessage("Usage: /nir user <player> <subcommand> ...");
@@ -76,6 +72,7 @@ public class NirCommand implements TabExecutor {
                     case "statistics", "stats" -> handleStatistics(sender, target, shiftArgs(args, 2));
                     case "rule" -> handleRule(sender, target, shiftArgs(args, 2));
                     case "quest" -> handleQuest(sender, target, shiftArgs(args, 2));
+                    case "role" -> handleRole(sender, target, shiftArgs(args, 2));
                     default -> sendHelp(sender);
                 }
                 return true;
@@ -92,8 +89,8 @@ public class NirCommand implements TabExecutor {
         if (sender instanceof Player player && !player.hasPermission("smpnir.admin")) {
             return List.of();
         }
-        List<String> primary = List.of("user", "debug", "calc");
-        List<String> userSubs = List.of("xp", "level", "collections", "statistics", "stats", "rule", "quest");
+        List<String> primary = List.of("user", "debug");
+        List<String> userSubs = List.of("xp", "level", "collections", "statistics", "stats", "rule", "quest", "role");
         if (args.length == 1) {
             return filter(primary, args[0]);
         }
@@ -104,16 +101,6 @@ public class NirCommand implements TabExecutor {
             }
             return List.of();
         }
-        if ("calc".equalsIgnoreCase(args[0])) {
-            if (args.length == 2) {
-                return filter(List.of("E=10", "E=50", "E=100", "E=300"), args[1]);
-            }
-            if (args.length == 3) {
-                return filter(List.of("A=20", "A=50", "A=80", "A=95"), args[2]);
-            }
-            return List.of();
-        }
-
         if (!"user".equalsIgnoreCase(args[0])) {
             return List.of();
         }
@@ -143,6 +130,15 @@ public class NirCommand implements TabExecutor {
             }
             if (args.length == 5) {
                 return filter(List.of("true", "false"), args[4]);
+            }
+            return List.of();
+        }
+        if (sub.equals("role")) {
+            if (args.length == 4) {
+                return filter(roleIds(), args[3]);
+            }
+            if (args.length == 5) {
+                return filter(List.of("grant", "revoke", "get"), args[4]);
             }
             return List.of();
         }
@@ -325,26 +321,6 @@ public class NirCommand implements TabExecutor {
         sender.sendMessage("Update notes debug " + (enabled ? "enabled" : "disabled") + ".");
     }
 
-    private void handleCalc(CommandSender sender, String[] args) {
-        if (args.length < 2) {
-            sender.sendMessage("Usage: /nir calc <effort> <aesthetics>");
-            return;
-        }
-        Double effort = parseNumericToken(args[0]);
-        Double aesthetics = parseNumericToken(args[1]);
-        if (effort == null || aesthetics == null) {
-            sender.sendMessage("Usage: /nir calc <effort> <aesthetics>");
-            return;
-        }
-        if (effort <= 0.0 || aesthetics <= 0.0 || aesthetics >= 100.0) {
-            sender.sendMessage("Usage: /nir calc <effort> <aesthetics>");
-            return;
-        }
-        double value = 4200.0 * Math.pow(Math.log10(effort + 1.0), 2.2) * (0.9 + 0.002 * aesthetics);
-        long rounded = Math.round(value);
-        sender.sendMessage(String.valueOf(rounded));
-    }
-
     private void handleRule(CommandSender sender, OfflinePlayer target, String[] args) {
         if (args.length < 3) {
             sender.sendMessage("Usage: /nir user <player> rule deathchest <true|false>");
@@ -369,6 +345,50 @@ public class NirCommand implements TabExecutor {
         data.setDeathChestEnabled(enabled);
         saveData(target, data);
         sender.sendMessage("Death chest " + (enabled ? "enabled" : "disabled") + " for " + targetName(target) + ".");
+    }
+
+    private void handleRole(CommandSender sender, OfflinePlayer target, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /nir user <player> role <role> <grant|revoke|get>");
+            return;
+        }
+        String role = normalizeRole(args[1]);
+        if (role.isBlank()) {
+            sender.sendMessage("Role must contain letters or numbers.");
+            return;
+        }
+        String action = args[2].toLowerCase(Locale.ROOT);
+        PlayerData data = loadData(target);
+        List<String> roles = data.getRoles();
+        if (roles == null) {
+            roles = new ArrayList<>();
+        }
+        boolean hasRole = containsRole(roles, role);
+        switch (action) {
+            case "get" -> sender.sendMessage(
+                    targetName(target) + " has role " + role + ": " + (hasRole ? "true" : "false") + "."
+            );
+            case "grant" -> {
+                if (hasRole) {
+                    sender.sendMessage(targetName(target) + " already has role " + role + ".");
+                    return;
+                }
+                roles.add(role);
+                data.setRoles(roles);
+                saveData(target, data);
+                sender.sendMessage("Granted role " + role + " to " + targetName(target) + ".");
+            }
+            case "revoke" -> {
+                if (!removeRole(roles, role)) {
+                    sender.sendMessage(targetName(target) + " does not have role " + role + ".");
+                    return;
+                }
+                data.setRoles(roles.isEmpty() ? null : roles);
+                saveData(target, data);
+                sender.sendMessage("Revoked role " + role + " from " + targetName(target) + ".");
+            }
+            default -> sender.sendMessage("Usage: /nir user <player> role <role> <grant|revoke|get>");
+        }
     }
 
     private void handleQuest(CommandSender sender, OfflinePlayer target, String[] args) {
@@ -633,12 +653,12 @@ public class NirCommand implements TabExecutor {
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("Usage:");
         sender.sendMessage("/nir debug <xp|updatenotes>");
-        sender.sendMessage("/nir calc <effort> <aesthetics>");
         sender.sendMessage("/nir user <player> xp <add|remove|set|get> [amount]");
         sender.sendMessage("/nir user <player> level <add|remove|set> <amount>");
         sender.sendMessage("/nir user <player> collections <category> <grant|revoke|clear> <id> [level]");
         sender.sendMessage("/nir user <player> statistics <section> <set|add|remove> <stat> <amount>");
         sender.sendMessage("/nir user <player> rule deathchest <true|false>");
+        sender.sendMessage("/nir user <player> role <role> <grant|revoke|get>");
         sender.sendMessage("/nir user <player> quest <questId> <grant|revoke|get>");
     }
 
@@ -684,26 +704,36 @@ public class NirCommand implements TabExecutor {
         }
     }
 
-    private Double parseNumericToken(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        String cleaned = raw.trim().replaceAll("[^0-9.+-]", "");
-        if (cleaned.isBlank() || cleaned.equals(".") || cleaned.equals("+") || cleaned.equals("-")) {
-            return null;
-        }
-        try {
-            return Double.parseDouble(cleaned);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
     private String normalizeKey(String input) {
         if (input == null) {
             return "";
         }
         return input.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private String normalizeRole(String input) {
+        return normalizeKey(input);
+    }
+
+    private boolean containsRole(List<String> roles, String role) {
+        if (roles == null || roles.isEmpty()) {
+            return false;
+        }
+        String normalized = normalizeRole(role);
+        for (String entry : roles) {
+            if (normalizeRole(entry).equals(normalized)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean removeRole(List<String> roles, String role) {
+        if (roles == null || roles.isEmpty()) {
+            return false;
+        }
+        String normalized = normalizeRole(role);
+        return roles.removeIf(entry -> normalizeRole(entry).equals(normalized));
     }
 
     private List<String> onlinePlayerNames() {
@@ -716,6 +746,10 @@ public class NirCommand implements TabExecutor {
 
     private List<String> collectionCategories() {
         return List.of("enchants", "biomes", "fishing", "discs", "bestiary");
+    }
+
+    private List<String> roleIds() {
+        return List.of("grader");
     }
 
     private boolean isEnchantCategory(String category) {

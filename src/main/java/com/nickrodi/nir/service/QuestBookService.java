@@ -11,6 +11,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
+import org.bukkit.Statistic;
 import org.bukkit.block.Biome;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -250,6 +251,10 @@ public class QuestBookService {
         page.append(Component.newline());
         int hungerValue = hungerService.displayHungerFor(player, level);
         page.append(centeredGradientLine("HUNGER: " + hungerValue, COLOR_HUNGER_GRADIENT_START, COLOR_HUNGER_GRADIENT_END));
+        page.append(Component.newline());
+        int deaths = player.getStatistic(Statistic.DEATHS);
+        page.append(centeredGradientLine("DEATHS: " + deaths, COLOR_HEALTH_GRADIENT_START, COLOR_HEALTH_GRADIENT_END)
+                .clickEvent(ClickEvent.runCommand(statCommand("deaths"))));
         page.append(Component.newline());
         page.append(Component.newline());
         page.append(centeredCommandButton("BACK", NamedTextColor.RED, "/questbook"));

@@ -71,7 +71,11 @@ public class SleepVoteService {
         }
 
         Set<UUID> eligible = new HashSet<>();
-        plugin.getServer().getOnlinePlayers().forEach(p -> eligible.add(p.getUniqueId()));
+        plugin.getServer().getOnlinePlayers().forEach(p -> {
+            if (isEligible(p, world)) {
+                eligible.add(p.getUniqueId());
+            }
+        });
         if (eligible.size() <= 1) {
             return;
         }
@@ -139,6 +143,9 @@ public class SleepVoteService {
         if (activeVote == null || player == null) {
             return;
         }
+        if (!isEligible(player, activeVote.world)) {
+            return;
+        }
         UUID id = player.getUniqueId();
         if (activeVote.eligible.add(id)) {
             sendVotePrompt(player);
@@ -159,6 +166,31 @@ public class SleepVoteService {
             activeVote.votes.remove(id);
             sendProgressIfChanged();
             checkCompletion();
+        }
+    }
+
+    public void handleWorldChange(Player player, World from, World to) {
+        if (activeVote == null || player == null) {
+            return;
+        }
+        UUID id = player.getUniqueId();
+        boolean wasEligible = activeVote.eligible.contains(id);
+        boolean nowEligible = to != null && to.equals(activeVote.world);
+        if (wasEligible && !nowEligible) {
+            if (id.equals(activeVote.starter)) {
+                failVote("Vote cancelled (sleeper left the world).");
+                return;
+            }
+            activeVote.eligible.remove(id);
+            activeVote.votes.remove(id);
+            sendProgressIfChanged();
+            checkCompletion();
+            return;
+        }
+        if (!wasEligible && nowEligible) {
+            activeVote.eligible.add(id);
+            sendVotePrompt(player);
+            sendProgressIfChanged();
         }
     }
 
@@ -216,10 +248,11 @@ public class SleepVoteService {
 
         // PASS: clear vote FIRST, then do world changes and wake players.
         World world = activeVote.world;
+        Set<UUID> recipients = new HashSet<>(activeVote.eligible);
         clearVote();
 
         skipToMorning(world);
-        broadcast(Component.text("Sleep vote passed. Skipping to morning.", NamedTextColor.GOLD));
+        sendToPlayers(recipients, Component.text("Sleep vote passed. Skipping to morning.", NamedTextColor.GOLD));
     }
 
     private void skipToMorning(World world) {
@@ -250,9 +283,10 @@ public class SleepVoteService {
 
         // CANCEL: clear vote FIRST to prevent infinite recursion via bed leave events.
         World world = activeVote.world;
+        Set<UUID> recipients = new HashSet<>(activeVote.eligible);
         clearVote();
 
-        broadcast(Component.text("Sleep vote cancelled. " + reason, NamedTextColor.RED));
+        sendToPlayers(recipients, Component.text("Sleep vote cancelled. " + reason, NamedTextColor.RED));
         wakeSleeping(world);
     }
 
@@ -269,7 +303,7 @@ public class SleepVoteService {
                 NamedTextColor.GOLD
         ).append(yesButton());
 
-        broadcast(msg);
+        sendToEligible(msg);
     }
 
     private void sendVotePrompt(Player player) {
@@ -313,11 +347,51 @@ public class SleepVoteService {
                 .append(Component.text(yes + "/" + total, NamedTextColor.GREEN).decorate(TextDecoration.BOLD))
                 .append(Component.text(" YES", NamedTextColor.GRAY));
 
-        plugin.getServer().getOnlinePlayers().forEach(p -> p.sendActionBar(bar));
+        for (UUID uuid : activeVote.eligible) {
+            Player player = plugin.getServer().getPlayer(uuid);
+            if (player != null) {
+                player.sendActionBar(bar);
+            }
+        }
     }
 
-    private void broadcast(Component message) {
-        plugin.getServer().broadcast(message);
+    private void sendToEligible(Component message) {
+        if (activeVote == null) {
+            return;
+        }
+        sendToPlayers(activeVote.eligible, message);
+    }
+
+    private void sendToPlayers(Set<UUID> recipients, Component message) {
+        if (recipients == null || recipients.isEmpty()) {
+            return;
+        }
+        for (UUID uuid : recipients) {
+            Player player = plugin.getServer().getPlayer(uuid);
+            if (player != null) {
+                player.sendMessage(message);
+            }
+        }
+    }
+
+    private boolean isEligible(Player player, World voteWorld) {
+        if (player == null || voteWorld == null) {
+            return false;
+        }
+        return player.getWorld().equals(voteWorld);
+    }
+
+    public int countEligible(World world) {
+        if (world == null) {
+            return 0;
+        }
+        int total = 0;
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            if (isEligible(player, world)) {
+                total++;
+            }
+        }
+        return total;
     }
 
     private static final class SleepVote {

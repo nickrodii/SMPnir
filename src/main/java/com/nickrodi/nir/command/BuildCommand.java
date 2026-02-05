@@ -1,7 +1,12 @@
 package com.nickrodi.nir.command;
 
+import com.nickrodi.nir.model.PlayerData;
 import com.nickrodi.nir.service.BuildReviewService;
+import com.nickrodi.nir.service.BuildReviewSessionService;
+import com.nickrodi.nir.service.BuildReviewSessionService.PendingGrade;
+import com.nickrodi.nir.service.BuildReviewSessionService.ReviewSession;
 import com.nickrodi.nir.service.ProgressionService;
+import com.nickrodi.nir.service.StorageService;
 import com.nickrodi.nir.service.BuildReviewService.BuildParticipant;
 import com.nickrodi.nir.service.BuildReviewService.BuildSubmission;
 import com.nickrodi.nir.service.BuildReviewService.ClaimResult;
@@ -13,6 +18,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Sound;
@@ -31,14 +37,21 @@ import java.util.UUID;
 
 public class BuildCommand implements TabExecutor {
     private static final String PERMISSION_ADMIN = "smpnir.admin";
+    private static final String ROLE_GRADER = "grader";
+    private static final int BONUS_MIN = 2500;
+    private static final int BONUS_MAX = 10000;
     private static final int MAX_ID_LENGTH = 48;
 
     private final BuildReviewService buildReviewService;
+    private final BuildReviewSessionService reviewSessionService;
     private final ProgressionService progressionService;
+    private final StorageService storageService;
 
-    public BuildCommand(BuildReviewService buildReviewService, ProgressionService progressionService) {
+    public BuildCommand(BuildReviewService buildReviewService, BuildReviewSessionService reviewSessionService, ProgressionService progressionService, StorageService storageService) {
         this.buildReviewService = Objects.requireNonNull(buildReviewService, "buildReviewService");
+        this.reviewSessionService = Objects.requireNonNull(reviewSessionService, "reviewSessionService");
         this.progressionService = Objects.requireNonNull(progressionService, "progressionService");
+        this.storageService = Objects.requireNonNull(storageService, "storageService");
     }
 
     @Override
@@ -53,6 +66,7 @@ public class BuildCommand implements TabExecutor {
             case "groupsubmit" -> handleGroupSubmit(sender, args);
             case "submissions" -> handleSubmissions(sender);
             case "history" -> handleHistory(sender, args);
+            case "review" -> handleReview(sender, args);
             case "grade" -> handleGrade(sender, args);
             case "ungrade" -> handleUngrade(sender, args);
             case "remove" -> handleRemove(sender, args);
@@ -67,8 +81,11 @@ public class BuildCommand implements TabExecutor {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> subs = new ArrayList<>(List.of("submit", "groupsubmit", "list", "claim", "history", "xp"));
+        if (isReviewer(sender)) {
+            subs.addAll(List.of("submissions", "review", "grade", "ungrade"));
+        }
         if (isAdmin(sender)) {
-            subs.addAll(List.of("submissions", "grade", "ungrade", "remove"));
+            subs.add("remove");
         }
         if (args.length == 1) {
             return filter(subs, args[0]);
@@ -79,14 +96,20 @@ public class BuildCommand implements TabExecutor {
                 case "claim" -> {
                     return filter(gradedBuildIds(), args[1]);
                 }
-                case "grade" -> {
-                    if (!isAdmin(sender)) {
+                case "review" -> {
+                    if (!isReviewer(sender)) {
                         return List.of();
                     }
                     return filter(pendingBuildIds(), args[1]);
                 }
+                case "grade" -> {
+                    if (!isReviewer(sender)) {
+                        return List.of();
+                    }
+                    return filter(List.of("back"), args[1]);
+                }
                 case "ungrade" -> {
-                    if (!isAdmin(sender)) {
+                    if (!isReviewer(sender)) {
                         return List.of();
                     }
                     return filter(gradedBuildIds(), args[1]);
@@ -131,6 +154,7 @@ public class BuildCommand implements TabExecutor {
         }
         BuildSubmission submission = buildReviewService.get(id);
         notifyAdminsSubmission(submission);
+        markBuildersNotified(submission, player.getUniqueId());
         player.sendMessage(Component.text("Build " + id + " submitted!", NamedTextColor.GREEN, TextDecoration.BOLD));
     }
 
@@ -164,11 +188,12 @@ public class BuildCommand implements TabExecutor {
         }
         BuildSubmission submission = buildReviewService.get(id);
         notifyAdminsSubmission(submission);
+        markBuildersNotified(submission, player.getUniqueId());
         player.sendMessage(Component.text("Build " + id + " submitted!", NamedTextColor.GREEN, TextDecoration.BOLD));
     }
 
     private void handleSubmissions(CommandSender sender) {
-        if (!isAdmin(sender)) {
+        if (!isReviewer(sender)) {
             sender.sendMessage("You do not have permission to use this command.");
             return;
         }
@@ -228,49 +253,196 @@ public class BuildCommand implements TabExecutor {
         }
     }
 
-    private void handleGrade(CommandSender sender, String[] args) {
-        if (!isAdmin(sender)) {
+    private void handleReview(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Only players can review builds.");
+            return;
+        }
+        if (!isReviewer(sender)) {
             sender.sendMessage("You do not have permission to use this command.");
             return;
         }
-        if (args.length < 3) {
-            sender.sendMessage("Usage: /build grade <id> <xp>");
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /build review <id>");
             return;
         }
         String id = args[1].trim();
-        long xpTotal;
-        try {
-            xpTotal = Long.parseLong(args[2]);
-        } catch (NumberFormatException e) {
-            sender.sendMessage("XP amount must be a number.");
-            return;
-        }
-        if (xpTotal <= 0L) {
-            sender.sendMessage("XP amount must be greater than 0.");
-            return;
-        }
         BuildSubmission submission = buildReviewService.get(id);
         if (submission == null) {
             sender.sendMessage("Build not found: " + id);
             return;
         }
-        if (submission.status() == BuildStatus.GRADED) {
-            sender.sendMessage("Build already graded: " + id);
+        if (submission.status() != BuildStatus.PENDING) {
+            sender.sendMessage("Build already graded: " + submission.id());
             return;
         }
-        UUID graderId = sender instanceof Player player ? player.getUniqueId() : null;
-        String graderName = sender.getName();
-        if (!buildReviewService.grade(id, xpTotal, graderId, graderName)) {
-            sender.sendMessage("Failed to grade build: " + id);
+        var world = Bukkit.getWorld(submission.world());
+        if (world == null) {
+            sender.sendMessage("World not found: " + submission.world());
             return;
         }
-        BuildSubmission graded = buildReviewService.get(id);
-        sender.sendMessage("Build " + id + " graded for " + xpTotal + " XP total.");
+        if (reviewSessionService.isReviewing(player)) {
+            reviewSessionService.endSession(player);
+        }
+        Location center = new Location(
+                world,
+                submission.x() + 0.5,
+                submission.y() + 1.0,
+                submission.z() + 0.5
+        );
+        reviewSessionService.startSession(player, submission.id(), submission.participantsLabel(), center);
+        reviewSessionService.clearPendingGrade(player);
+        player.setGameMode(GameMode.SPECTATOR);
+        player.teleport(center);
+        player.sendMessage(Component.text(
+                "Reviewing build " + submission.id() + " by " + submission.participantsLabel() + ".",
+                NamedTextColor.AQUA
+        ));
+        player.sendMessage(Component.text(
+                "Use /build grade <effort> <aesthetic> <bonusxp> or /build grade back.",
+                NamedTextColor.GRAY
+        ));
+    }
+
+    private void handleGrade(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Only players can grade builds.");
+            return;
+        }
+        if (!isReviewer(sender)) {
+            sender.sendMessage("You do not have permission to use this command.");
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /build grade <effort> <aesthetic> [bonusxp]");
+            return;
+        }
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "back" -> handleGradeBack(player);
+            case "yes" -> handleGradeConfirm(player);
+            case "no" -> handleGradeCancel(player);
+            default -> handleGradeCalculate(player, args);
+        }
+    }
+
+    private void handleGradeBack(Player player) {
+        if (!reviewSessionService.endSession(player)) {
+            player.sendMessage("You are not reviewing a build.");
+        }
+    }
+
+    private void handleGradeCancel(Player player) {
+        reviewSessionService.clearPendingGrade(player);
+    }
+
+    private void handleGradeConfirm(Player player) {
+        ReviewSession session = reviewSessionService.getSession(player);
+        if (session == null) {
+            player.sendMessage("You are not reviewing a build.");
+            return;
+        }
+        PendingGrade pending = reviewSessionService.getPendingGrade(player);
+        if (pending == null) {
+            player.sendMessage("No pending grade to confirm.");
+            return;
+        }
+        BuildSubmission submission = buildReviewService.get(session.buildId());
+        if (submission == null) {
+            player.sendMessage("Build not found: " + session.buildId());
+            reviewSessionService.endSession(player);
+            return;
+        }
+        if (submission.status() != BuildStatus.PENDING) {
+            player.sendMessage("Build already graded: " + submission.id());
+            reviewSessionService.endSession(player);
+            return;
+        }
+        long xpTotal = pending.xpTotal();
+        if (xpTotal <= 0L) {
+            player.sendMessage("XP amount must be greater than 0.");
+            return;
+        }
+        UUID graderId = player.getUniqueId();
+        String graderName = player.getName();
+        if (!buildReviewService.grade(submission.id(), xpTotal, graderId, graderName)) {
+            player.sendMessage("Failed to grade build: " + submission.id());
+            return;
+        }
+        BuildSubmission graded = buildReviewService.get(submission.id());
+        player.sendMessage("Build " + submission.id() + " graded for " + xpTotal + " XP total.");
         notifyParticipants(graded);
+        reviewSessionService.endSession(player);
+    }
+
+    private void handleGradeCalculate(Player player, String[] args) {
+        if (args.length < 3) {
+            player.sendMessage("Usage: /build grade <effort> <aesthetic> [bonusxp]");
+            return;
+        }
+        ReviewSession session = reviewSessionService.getSession(player);
+        if (session == null) {
+            player.sendMessage("You are not reviewing a build. Use /build review <id> first.");
+            return;
+        }
+        BuildSubmission submission = buildReviewService.get(session.buildId());
+        if (submission == null) {
+            player.sendMessage("Build not found: " + session.buildId());
+            reviewSessionService.endSession(player);
+            return;
+        }
+        if (submission.status() != BuildStatus.PENDING) {
+            player.sendMessage("Build already graded: " + submission.id());
+            reviewSessionService.endSession(player);
+            return;
+        }
+        Double effort = parseNumericToken(args[1]);
+        Double aesthetics = parseNumericToken(args[2]);
+        if (effort == null || aesthetics == null) {
+            player.sendMessage("Usage: /build grade <effort> <aesthetic> [bonusxp]");
+            return;
+        }
+        if (effort <= 0.0 || aesthetics <= 0.0 || aesthetics > 100.0) {
+            player.sendMessage("Usage: /build grade <effort> <aesthetic> [bonusxp]");
+            return;
+        }
+        long bonus = 0L;
+        if (args.length >= 4) {
+            Integer parsedBonus = parseIntStrict(args[3]);
+            if (parsedBonus == null) {
+                player.sendMessage("Bonus XP must be a number.");
+                return;
+            }
+            if (parsedBonus < BONUS_MIN || parsedBonus > BONUS_MAX) {
+                player.sendMessage("Bonus XP must be between " + BONUS_MIN + " and " + BONUS_MAX + ".");
+                return;
+            }
+            bonus = parsedBonus;
+        }
+        long base = Math.round(calculateGradeXp(effort, aesthetics));
+        long total = Math.max(0L, base + bonus);
+        reviewSessionService.setPendingGrade(player, new PendingGrade(total, effort, aesthetics, bonus));
+
+        String builder = session.builderLabel().isBlank() ? "Unknown" : session.builderLabel();
+        Component prompt = Component.text()
+                .append(Component.text("You are grading this build ", NamedTextColor.GRAY))
+                .append(Component.text(session.buildId(), NamedTextColor.AQUA, TextDecoration.BOLD))
+                .append(Component.text(" by ", NamedTextColor.GRAY))
+                .append(Component.text(builder, NamedTextColor.YELLOW))
+                .append(Component.text(" for ", NamedTextColor.GRAY))
+                .append(Component.text(total + " xp", NamedTextColor.GREEN))
+                .append(Component.text(". Are you sure?", NamedTextColor.GRAY))
+                .build();
+        Component yes = Component.text("[YES]", NamedTextColor.GREEN, TextDecoration.BOLD, TextDecoration.UNDERLINED)
+                .clickEvent(ClickEvent.runCommand("/build grade yes"));
+        Component no = Component.text("[NO]", NamedTextColor.RED, TextDecoration.BOLD, TextDecoration.UNDERLINED)
+                .clickEvent(ClickEvent.runCommand("/build grade no"));
+        player.sendMessage(prompt);
+        player.sendMessage(Component.text().append(yes).append(Component.text(" ")).append(no).build());
     }
 
     private void handleUngrade(CommandSender sender, String[] args) {
-        if (!isAdmin(sender)) {
+        if (!isReviewer(sender)) {
             sender.sendMessage("You do not have permission to use this command.");
             return;
         }
@@ -449,7 +621,7 @@ public class BuildCommand implements TabExecutor {
         }
         String message = "New build submitted: " + formatSubmissionLine(submission) + " (use /build submissions)";
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.hasPermission(PERMISSION_ADMIN)) {
+            if (isReviewer(player)) {
                 player.sendMessage(message);
             }
         }
@@ -477,6 +649,16 @@ public class BuildCommand implements TabExecutor {
         return player.hasPermission(PERMISSION_ADMIN);
     }
 
+    private boolean isReviewer(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            return true;
+        }
+        if (player.hasPermission(PERMISSION_ADMIN)) {
+            return true;
+        }
+        return hasRole(player, ROLE_GRADER);
+    }
+
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("Build commands:");
         sender.sendMessage("/build submit <id> - submit a build for review");
@@ -485,11 +667,15 @@ public class BuildCommand implements TabExecutor {
         sender.sendMessage("/build claim <id> - claim XP for a graded build");
         sender.sendMessage("/build xp - show total XP claimed from builds");
         sender.sendMessage("/build history - view your claimed build history");
+        if (isReviewer(sender)) {
+            sender.sendMessage("/build submissions - list builds waiting for review (reviewer)");
+            sender.sendMessage("/build review <id> - spectate a build for review (reviewer)");
+            sender.sendMessage("/build grade <effort> <aesthetic> [bonusxp] - grade current build (reviewer)");
+            sender.sendMessage("/build grade back - return from build review (reviewer)");
+            sender.sendMessage("/build ungrade <id> - return a graded build to pending (reviewer)");
+        }
         if (isAdmin(sender)) {
-            sender.sendMessage("/build submissions - list builds waiting for review (admin)");
             sender.sendMessage("/build history <player> - view a player's claimed build history (admin)");
-            sender.sendMessage("/build grade <id> <xp> - grade a build (admin)");
-            sender.sendMessage("/build ungrade <id> - return a graded build to pending (admin)");
             sender.sendMessage("/build remove <id> - remove a pending build (admin)");
         }
     }
@@ -499,9 +685,9 @@ public class BuildCommand implements TabExecutor {
                 .clickEvent(ClickEvent.runCommand("/build claim " + id));
     }
 
-    private Component teleportButton(BuildSubmission submission) {
-        String command = "/minecraft:tp " + submission.x() + " " + submission.y() + " " + submission.z();
-        return Component.text("[TELEPORT]", NamedTextColor.GREEN, TextDecoration.BOLD, TextDecoration.UNDERLINED)
+    private Component reviewButton(BuildSubmission submission) {
+        String command = "/build review " + submission.id();
+        return Component.text("[GRADE]", NamedTextColor.GREEN, TextDecoration.BOLD, TextDecoration.UNDERLINED)
                 .clickEvent(ClickEvent.runCommand(command));
     }
 
@@ -518,7 +704,57 @@ public class BuildCommand implements TabExecutor {
                 .append(Component.text(" - ", NamedTextColor.GRAY))
                 .append(Component.text(submission.id(), NamedTextColor.AQUA))
                 .append(Component.text(" - ", NamedTextColor.GRAY))
-                .append(teleportButton(submission));
+                .append(reviewButton(submission));
+    }
+
+    private void markBuildersNotified(BuildSubmission submission, UUID submitterId) {
+        if (submission == null) {
+            return;
+        }
+        for (BuildParticipant participant : submission.participants()) {
+            if (participant == null || participant.uuid() == null) {
+                continue;
+            }
+            boolean isSubmitter = submitterId != null && submitterId.equals(participant.uuid());
+            Player online = Bukkit.getPlayer(participant.uuid());
+            if (!isSubmitter && online != null) {
+                online.sendMessage(Component.text(
+                        "You were added as a builder on build " + submission.id() + ".",
+                        NamedTextColor.AQUA
+                ));
+            }
+            if (isSubmitter || online != null) {
+                markBuildNotice(participant.uuid(), submission.id());
+            }
+        }
+    }
+
+    private void markBuildNotice(UUID uuid, String buildId) {
+        if (uuid == null || buildId == null || buildId.isBlank()) {
+            return;
+        }
+        PlayerData data = progressionService.getData(uuid);
+        boolean online = Bukkit.getPlayer(uuid) != null;
+        if (!online) {
+            data = storageService.load(uuid);
+        }
+        List<String> notices = data.getBuildSubmissionNotices();
+        if (notices == null) {
+            notices = new ArrayList<>();
+        }
+        String normalized = normalizeKey(buildId);
+        for (String entry : notices) {
+            if (normalizeKey(entry).equals(normalized)) {
+                return;
+            }
+        }
+        notices.add(buildId);
+        data.setBuildSubmissionNotices(notices);
+        if (online) {
+            progressionService.save(uuid);
+        } else {
+            storageService.save(uuid, data);
+        }
     }
 
     private Component buildIdLine(String id) {
@@ -654,5 +890,67 @@ public class BuildCommand implements TabExecutor {
             }
         }
         return matches;
+    }
+
+    private double calculateGradeXp(double effort, double aesthetics) {
+        return 4200.0 * Math.pow(Math.log10(effort + 1.0), 2.2) * (0.9 + 0.002 * aesthetics);
+    }
+
+    private Double parseNumericToken(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String cleaned = raw.trim().replaceAll("[^0-9.+-]", "");
+        if (cleaned.isBlank() || cleaned.equals(".") || cleaned.equals("+") || cleaned.equals("-")) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(cleaned);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private Integer parseIntStrict(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private String normalizeKey(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private boolean hasRole(Player player, String role) {
+        if (player == null || role == null || role.isBlank()) {
+            return false;
+        }
+        var data = progressionService.getData(player.getUniqueId());
+        List<String> roles = data.getRoles();
+        if (roles == null || roles.isEmpty()) {
+            return false;
+        }
+        String normalized = normalizeRole(role);
+        for (String entry : roles) {
+            if (normalizeRole(entry).equals(normalized)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeRole(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
     }
 }

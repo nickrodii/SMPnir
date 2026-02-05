@@ -4,6 +4,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerBedEnterEvent;
 import org.bukkit.event.player.PlayerBedLeaveEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.world.TimeSkipEvent;
@@ -44,6 +45,11 @@ public class SleepVoteListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
+    public void onWorldChange(PlayerChangedWorldEvent event) {
+        sleepVoteService.handleWorldChange(event.getPlayer(), event.getFrom(), event.getPlayer().getWorld());
+    }
+
+    @EventHandler(ignoreCancelled = true)
     public void onTimeSkip(TimeSkipEvent event) {
         if (event.getSkipReason() != TimeSkipEvent.SkipReason.NIGHT_SKIP) {
             return;
@@ -51,7 +57,7 @@ public class SleepVoteListener implements Listener {
         if (!worldAccess.isAllowed(event.getWorld()) || worldAccess.isNetherOrEnd(event.getWorld())) {
             return;
         }
-        if (!sleepVoteService.isActive() && org.bukkit.Bukkit.getOnlinePlayers().size() <= 1) {
+        if (!sleepVoteService.isActive() && sleepVoteService.countEligible(event.getWorld()) <= 1) {
             return;
         }
         event.setCancelled(true);

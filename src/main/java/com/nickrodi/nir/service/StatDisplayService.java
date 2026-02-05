@@ -7,6 +7,7 @@ import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Criteria;
 import org.bukkit.scoreboard.DisplaySlot;
@@ -115,6 +116,7 @@ public class StatDisplayService {
             case WITHER -> "wither kills";
             case WARDEN -> "warden kills";
             case PLAYERS -> "players killed";
+            case DEATHS -> "deaths";
             case TRADES -> "trades";
             case XP_ORBS -> "xp orbs used";
             case ADVANCEMENTS -> "advancements";
@@ -145,6 +147,7 @@ public class StatDisplayService {
             case WITHER -> clampToInt(data.getWitherKills());
             case WARDEN -> clampToInt(data.getWardenKills());
             case PLAYERS -> clampToInt(data.getPlayerKills());
+            case DEATHS -> resolveDeathCount(uuid);
             case TRADES -> clampToInt(data.getVillagerTrades());
             case XP_ORBS -> clampToInt(data.getVanillaXpSpent());
             case ADVANCEMENTS -> clampToInt(data.getAdvancementsDone());
@@ -162,6 +165,14 @@ public class StatDisplayService {
 
     private int clampToInt(long value) {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, value));
+    }
+
+    private int resolveDeathCount(UUID uuid) {
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) {
+            return 0;
+        }
+        return player.getStatistic(Statistic.DEATHS);
     }
 
     private long countFoundEnchants(PlayerData data) {

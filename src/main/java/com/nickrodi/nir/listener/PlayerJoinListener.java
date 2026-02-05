@@ -1,5 +1,6 @@
 package com.nickrodi.nir.listener;
 
+import java.util.Locale;
 import java.util.Objects;
 
 import org.bukkit.Sound;
@@ -25,7 +26,7 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
 public class PlayerJoinListener implements Listener {
-    private static final String UPDATE_MESSAGE_VERSION = "0.1.5";
+    private static final String UPDATE_MESSAGE_VERSION = "0.1.6";
     private final JavaPlugin plugin;
     private final StorageService storageService;
     private final ProgressionService progressionService;
@@ -93,11 +94,14 @@ public class PlayerJoinListener implements Listener {
                         NamedTextColor.YELLOW
                 ));
             }
-            if (event.getPlayer().hasPermission("smpnir.admin")) {
+            if (isBuildReviewer(event.getPlayer(), data)) {
                 int pending = buildReviewService.listPending().size();
                 if (pending > 0) {
                     event.getPlayer().sendMessage("There are " + pending + " build submissions waiting for review. Use /build submissions.");
                 }
+            }
+            if (notifyBuildAssignments(event.getPlayer(), data)) {
+                storageService.save(event.getPlayer().getUniqueId(), data);
             }
             if (event.getPlayer().hasPlayedBefore()) {
                 maybeSendUpdateMessage(event.getPlayer(), data);
@@ -121,14 +125,24 @@ public class PlayerJoinListener implements Listener {
         Component header = Component.text()
                 .append(Component.text("SMP", NamedTextColor.WHITE, TextDecoration.BOLD))
                 .append(gradientText("nir", TextColor.color(0xE9DCFF), TextColor.color(0xD9F1FF), TextDecoration.BOLD))
-                .append(Component.text(" 0.1.5 UPDATE NOTES", NamedTextColor.AQUA, TextDecoration.BOLD))
+                .append(Component.text(" 0.1.6 UPDATE NOTES", NamedTextColor.AQUA, TextDecoration.BOLD))
                 .build();
         Component divider = Component.text("----", NamedTextColor.DARK_GRAY);
-        Component line1 = Component.text("Bug fixes and admin QoL changes", NamedTextColor.GREEN);
+        Component line1 = Component.text("Deaths now shown in /book player info", NamedTextColor.GREEN);
+        Component line2 = Component.text("Click deaths to set below-name display", NamedTextColor.GREEN);
+        Component line3 = Component.text("Added grader role (reviewers no longer need admin)", NamedTextColor.GREEN);
+        Component line4 = Component.text("Remade build grading system for submissions", NamedTextColor.GREEN);
+        Component line5 = Component.text("Sleep votes now only count players in the overworld", NamedTextColor.GREEN);
+        Component line6 = Component.text("Build review mode no longer affects /book stats", NamedTextColor.GREEN);
         player.sendMessage(header);
         player.sendMessage(divider);
         player.sendMessage(Component.text(" "));
         player.sendMessage(line1);
+        player.sendMessage(line2);
+        player.sendMessage(line3);
+        player.sendMessage(line4);
+        player.sendMessage(line5);
+        player.sendMessage(line6);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.3f);
         if (!progressionService.isUpdateNotesDebug()) {
             data.setLastUpdateMessageVersion(UPDATE_MESSAGE_VERSION);
@@ -192,5 +206,86 @@ public class PlayerJoinListener implements Listener {
             builder.append(Component.text(String.valueOf(text.charAt(i)), color, decorations));
         }
         return builder.build();
+    }
+
+    private boolean isBuildReviewer(org.bukkit.entity.Player player, PlayerData data) {
+        if (player == null) {
+            return false;
+        }
+        if (player.hasPermission("smpnir.admin")) {
+            return true;
+        }
+        return hasRole(data, "grader");
+    }
+
+    private boolean hasRole(PlayerData data, String role) {
+        if (data == null || role == null || role.isBlank()) {
+            return false;
+        }
+        var roles = data.getRoles();
+        if (roles == null || roles.isEmpty()) {
+            return false;
+        }
+        String normalized = normalizeRole(role);
+        for (String entry : roles) {
+            if (normalizeRole(entry).equals(normalized)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeRole(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private boolean notifyBuildAssignments(org.bukkit.entity.Player player, PlayerData data) {
+        if (player == null || data == null || buildReviewService == null) {
+            return false;
+        }
+        var submissions = buildReviewService.listForPlayer(player.getUniqueId());
+        if (submissions.isEmpty()) {
+            return false;
+        }
+        var notices = data.getBuildSubmissionNotices();
+        if (notices == null) {
+            notices = new java.util.ArrayList<>();
+        }
+        boolean updated = false;
+        for (var submission : submissions) {
+            String id = submission.id();
+            if (id == null || id.isBlank()) {
+                continue;
+            }
+            if (containsNotice(notices, id)) {
+                continue;
+            }
+            player.sendMessage(Component.text(
+                    "You were added as a builder on build " + id + ".",
+                    NamedTextColor.AQUA
+            ));
+            notices.add(id);
+            updated = true;
+        }
+        if (updated) {
+            data.setBuildSubmissionNotices(notices);
+        }
+        return updated;
+    }
+
+    private boolean containsNotice(java.util.List<String> notices, String buildId) {
+        if (notices == null || notices.isEmpty() || buildId == null) {
+            return false;
+        }
+        String normalized = normalizeRole(buildId);
+        for (String entry : notices) {
+            if (normalizeRole(entry).equals(normalized)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -76,9 +76,10 @@ public class TabListService {
 
         // Make XP text pop more on tab background
         if (level >= levelCurve.getMaxLevel()) {
-            b.append(centeredLine(" " + current + " XP", COLOR_STATS));
+            b.append(centeredLine(" " + CompactNumberFormatter.format(current) + " XP", COLOR_STATS));
         } else {
-            b.append(centeredLine("(" + current + " / " + next + " XP)", COLOR_HINT));
+            b.append(centeredLine("(" + CompactNumberFormatter.format(current) + " / "
+                    + CompactNumberFormatter.format(next) + " XP)", COLOR_HINT));
         }
 
         return b.build();

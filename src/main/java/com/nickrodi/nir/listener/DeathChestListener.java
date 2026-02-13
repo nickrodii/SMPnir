@@ -6,14 +6,17 @@ import java.util.List;
 import org.bukkit.HeightMap;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.inventory.ItemStack;
 
 import com.nickrodi.nir.service.DeathChestService;
@@ -32,6 +35,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
  * - Prevents duplicate drops (vanilla drops are cleared and keepInventory is enabled).
  * - If the death chest inventory becomes empty, it is destroyed (no drops).
  * - If broken, contents drop but the chest item does not.
+ * - Explosions never destroy death chest blocks.
  */
 public class DeathChestListener implements Listener {
     private final DeathChestService deathChestService;
@@ -107,11 +111,14 @@ public class DeathChestListener implements Listener {
         deathChestService.scheduleCleanupCheck(event.getInventory());
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onInventoryMove(InventoryMoveItemEvent event) {
-        // Covers hoppers pulling items out. We check next tick.
-        deathChestService.scheduleCleanupCheck(event.getSource());
-        deathChestService.scheduleCleanupCheck(event.getDestination());
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    public void onEntityExplode(EntityExplodeEvent event) {
+        protectDeathChests(event.blockList());
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    public void onBlockExplode(BlockExplodeEvent event) {
+        protectDeathChests(event.blockList());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -152,5 +159,9 @@ public class DeathChestListener implements Listener {
                 + " Z: " + loc.getBlockZ()
                 + " (" + worldName + ")";
         player.sendMessage(Component.text(message, NamedTextColor.RED));
+    }
+
+    private void protectDeathChests(List<Block> explodingBlocks) {
+        explodingBlocks.removeIf(deathChestService::isDeathChestBlock);
     }
 }

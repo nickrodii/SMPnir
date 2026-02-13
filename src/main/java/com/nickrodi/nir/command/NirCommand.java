@@ -9,6 +9,7 @@ import com.nickrodi.nir.service.LevelCurve;
 import com.nickrodi.nir.service.ProgressionService;
 import com.nickrodi.nir.service.QuestService;
 import com.nickrodi.nir.service.StorageService;
+import com.nickrodi.nir.service.CompactNumberFormatter;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -192,7 +193,7 @@ public class NirCommand implements TabExecutor {
         String action = args[1].toLowerCase(Locale.ROOT);
         if ("get".equals(action)) {
             PlayerData data = loadData(target);
-            sender.sendMessage("Total XP: " + data.getTotalXp());
+            sender.sendMessage("Total XP: " + CompactNumberFormatter.format(data.getTotalXp()));
             return;
         }
         if (args.length < 3) {
@@ -216,13 +217,13 @@ public class NirCommand implements TabExecutor {
             case "add" -> {
                 if (target.isOnline()) {
                     int gained = progressionService.addXp(target.getUniqueId(), amount, "admin");
-                    sender.sendMessage("Added " + amount + " XP. Nir gained: " + gained + ".");
+                    sender.sendMessage("Added " + CompactNumberFormatter.format(amount) + " XP. Nir gained: " + gained + ".");
                 } else {
                     long newTotal = current + amount;
                     data.setTotalXp(newTotal);
                     data.setLevel(levelCurve.getLevelForTotalXp(newTotal));
                     saveData(target, data);
-                    sender.sendMessage("Added " + amount + " XP to " + targetName(target) + ".");
+                    sender.sendMessage("Added " + CompactNumberFormatter.format(amount) + " XP to " + targetName(target) + ".");
                 }
             }
             case "remove" -> {
@@ -234,7 +235,8 @@ public class NirCommand implements TabExecutor {
                     data.setLevel(levelCurve.getLevelForTotalXp(newTotal));
                     saveData(target, data);
                 }
-                sender.sendMessage("Removed " + amount + " XP. Total XP: " + newTotal + ".");
+                sender.sendMessage("Removed " + CompactNumberFormatter.format(amount)
+                        + " XP. Total XP: " + CompactNumberFormatter.format(newTotal) + ".");
             }
             case "set" -> {
                 if (target.isOnline()) {
@@ -244,7 +246,7 @@ public class NirCommand implements TabExecutor {
                     data.setLevel(levelCurve.getLevelForTotalXp(amount));
                     saveData(target, data);
                 }
-                sender.sendMessage("Set total XP to " + amount + ".");
+                sender.sendMessage("Set total XP to " + CompactNumberFormatter.format(amount) + ".");
             }
             default -> sender.sendMessage("Usage: /nir user <player> xp <add|remove|set|get> [amount]");
         }

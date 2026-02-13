@@ -26,7 +26,7 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
 public class PlayerJoinListener implements Listener {
-    private static final String UPDATE_MESSAGE_VERSION = "0.1.6";
+    private static final String UPDATE_MESSAGE_VERSION = "0.1.7";
     private final JavaPlugin plugin;
     private final StorageService storageService;
     private final ProgressionService progressionService;
@@ -125,15 +125,13 @@ public class PlayerJoinListener implements Listener {
         Component header = Component.text()
                 .append(Component.text("SMP", NamedTextColor.WHITE, TextDecoration.BOLD))
                 .append(gradientText("nir", TextColor.color(0xE9DCFF), TextColor.color(0xD9F1FF), TextDecoration.BOLD))
-                .append(Component.text(" 0.1.6 UPDATE NOTES", NamedTextColor.AQUA, TextDecoration.BOLD))
+                .append(Component.text(" " + UPDATE_MESSAGE_VERSION + " UPDATE NOTES", NamedTextColor.AQUA, TextDecoration.BOLD))
                 .build();
         Component divider = Component.text("----", NamedTextColor.DARK_GRAY);
-        Component line1 = Component.text("Deaths now shown in /book player info", NamedTextColor.GREEN);
-        Component line2 = Component.text("Click deaths to set below-name display", NamedTextColor.GREEN);
-        Component line3 = Component.text("Added grader role (reviewers no longer need admin)", NamedTextColor.GREEN);
-        Component line4 = Component.text("Remade build grading system for submissions", NamedTextColor.GREEN);
-        Component line5 = Component.text("Sleep votes now only count players in the overworld", NamedTextColor.GREEN);
-        Component line6 = Component.text("Build review mode no longer affects /book stats", NamedTextColor.GREEN);
+        Component line1 = Component.text("Death chests can no longer be exploded", NamedTextColor.GREEN);
+        Component line2 = Component.text("Death chests only remove on break or when emptied", NamedTextColor.GREEN);
+        Component line3 = Component.text("XP now abbreviates (1.9k, 12.3k, 1.2mil)", NamedTextColor.GREEN);
+        Component line4 = Component.text("Below-name stat values now abbreviate above 999", NamedTextColor.GREEN);
         player.sendMessage(header);
         player.sendMessage(divider);
         player.sendMessage(Component.text(" "));
@@ -141,8 +139,6 @@ public class PlayerJoinListener implements Listener {
         player.sendMessage(line2);
         player.sendMessage(line3);
         player.sendMessage(line4);
-        player.sendMessage(line5);
-        player.sendMessage(line6);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.3f);
         if (!progressionService.isUpdateNotesDebug()) {
             data.setLastUpdateMessageVersion(UPDATE_MESSAGE_VERSION);

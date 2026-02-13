@@ -274,7 +274,7 @@ public class ProgressionService {
             String suffix = pending.reasons.isEmpty()
                     ? ""
                     : " (" + String.join(", ", pending.reasons) + ")";
-            Component message = gradientText("+" + pending.total + " xp" + suffix, start, end, big);
+            Component message = gradientText("+" + CompactNumberFormatter.format(pending.total) + " xp" + suffix, start, end, big);
             player.sendActionBar(message);
             if (amount >= BIG_XP_THRESHOLD) {
                 player.playSound(player.getLocation(), Sound.EVENT_MOB_EFFECT_RAID_OMEN, 1.0f, 1.0f);
@@ -328,7 +328,7 @@ public class ProgressionService {
         Player player = Bukkit.getPlayer(uuid);
         if (player != null) {
             String safeReason = (reason == null || reason.isBlank()) ? "unknown" : reason;
-            player.sendMessage("XP +" + amount + " (" + safeReason + ")");
+            player.sendMessage("XP +" + CompactNumberFormatter.format(amount) + " (" + safeReason + ")");
         }
     }
 
@@ -340,7 +340,8 @@ public class ProgressionService {
             return;
         }
         String safeReason = (reason == null || reason.isBlank()) ? "unknown" : reason;
-        String sign = delta > 0 ? "+" : "";
+        String sign = delta > 0 ? "+" : "-";
+        String amount = CompactNumberFormatter.format(Math.abs(delta));
         String name = null;
         Player target = Bukkit.getPlayer(targetUuid);
         if (target != null) {
@@ -352,7 +353,7 @@ public class ProgressionService {
         if (name == null || name.isBlank()) {
             name = targetUuid.toString();
         }
-        String message = "XP " + sign + delta + " (" + safeReason + ") -> " + name;
+        String message = "XP " + sign + amount + " (" + safeReason + ") -> " + name;
         for (UUID watcher : globalXpDebugEnabled) {
             Player player = Bukkit.getPlayer(watcher);
             if (player != null) {

@@ -266,7 +266,7 @@ public class QuestBookService {
         List<QuestEntry> incomplete = new ArrayList<>();
         List<QuestEntry> complete = new ArrayList<>();
         for (QuestDefinition quest : questService.quests()) {
-            String label = quest.title() + " (" + quest.xp() + " XP)";
+            String label = quest.title() + " (" + CompactNumberFormatter.format(quest.xp()) + " XP)";
             if (questService.isComplete(data, quest)) {
                 complete.add(new QuestEntry(label + " (COMPLETE)", true));
             } else {
@@ -891,9 +891,10 @@ public class QuestBookService {
         page.append(centeredProgressBar(progress));
         page.append(Component.newline());
         if (level >= levelCurve.getMaxLevel()) {
-            page.append(centeredLine(" " + current + " xp", COLOR_STATS));
+            page.append(centeredLine(" " + CompactNumberFormatter.format(current) + " xp", COLOR_STATS));
         } else {
-            page.append(centeredLine(" (" + current + " / " + next + " XP)", COLOR_HINT));
+            page.append(centeredLine(" (" + CompactNumberFormatter.format(current) + " / "
+                    + CompactNumberFormatter.format(next) + " XP)", COLOR_HINT));
         }
     }
 
@@ -945,7 +946,7 @@ public class QuestBookService {
 
     private Component centeredStatLine(String label, long xp, String command) {
         String left = label;
-        String right = "(" + xp + " XP)";
+        String right = "(" + CompactNumberFormatter.format(xp) + " XP)";
         int totalLen = left.length() + 1 + right.length();
         int pad = Math.max(0, (LINE_WIDTH - totalLen) / 2);
         String padding = " ".repeat(pad);
@@ -960,7 +961,7 @@ public class QuestBookService {
 
     private Component centeredCollectionStatLine(String label, long found, long max, long xp, String command) {
         String left = label + ": " + found + "/" + max;
-        String right = "(" + xp + " XP)";
+        String right = "(" + CompactNumberFormatter.format(xp) + " XP)";
         int totalLen = left.length() + 1 + right.length();
         int pad = Math.max(0, (LINE_WIDTH - totalLen) / 2);
         String padding = " ".repeat(pad);

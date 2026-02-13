@@ -12,6 +12,7 @@ import com.nickrodi.nir.service.BuildReviewService.BuildSubmission;
 import com.nickrodi.nir.service.BuildReviewService.ClaimResult;
 import com.nickrodi.nir.service.BuildReviewService.ClaimStatus;
 import com.nickrodi.nir.service.BuildReviewService.BuildStatus;
+import com.nickrodi.nir.service.CompactNumberFormatter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -249,7 +250,7 @@ public class BuildCommand implements TabExecutor {
         sender.sendMessage("Build history for " + targetName(target) + ":");
         for (BuildSubmission submission : claimed) {
             long share = submission.shareFor(target.getUniqueId());
-            sender.sendMessage(submission.id() + " (" + share + " xp)");
+            sender.sendMessage(submission.id() + " (" + CompactNumberFormatter.format(share) + " xp)");
         }
     }
 
@@ -370,7 +371,7 @@ public class BuildCommand implements TabExecutor {
             return;
         }
         BuildSubmission graded = buildReviewService.get(submission.id());
-        player.sendMessage("Build " + submission.id() + " graded for " + xpTotal + " XP total.");
+        player.sendMessage("Build " + submission.id() + " graded for " + CompactNumberFormatter.format(xpTotal) + " XP total.");
         notifyParticipants(graded);
         reviewSessionService.endSession(player);
     }
@@ -430,7 +431,7 @@ public class BuildCommand implements TabExecutor {
                 .append(Component.text(" by ", NamedTextColor.GRAY))
                 .append(Component.text(builder, NamedTextColor.YELLOW))
                 .append(Component.text(" for ", NamedTextColor.GRAY))
-                .append(Component.text(total + " xp", NamedTextColor.GREEN))
+                .append(Component.text(CompactNumberFormatter.format(total) + " xp", NamedTextColor.GREEN))
                 .append(Component.text(". Are you sure?", NamedTextColor.GRAY))
                 .build();
         Component yes = Component.text("[YES]", NamedTextColor.GREEN, TextDecoration.BOLD, TextDecoration.UNDERLINED)
@@ -466,7 +467,7 @@ public class BuildCommand implements TabExecutor {
             return;
         }
         if (removed > 0L) {
-            sender.sendMessage("Build " + id + " returned to pending. Removed " + removed + " XP from claimed players.");
+            sender.sendMessage("Build " + id + " returned to pending. Removed " + CompactNumberFormatter.format(removed) + " XP from claimed players.");
         } else {
             sender.sendMessage("Build " + id + " returned to pending.");
         }
@@ -572,7 +573,7 @@ public class BuildCommand implements TabExecutor {
         }
         var data = progressionService.getData(player.getUniqueId());
         data.setBuildXpGained(data.getBuildXpGained() + share);
-        player.sendMessage(Component.text("Claimed " + share + " XP from build " + id + ".", NamedTextColor.AQUA));
+        player.sendMessage(Component.text("Claimed " + CompactNumberFormatter.format(share) + " XP from build " + id + ".", NamedTextColor.AQUA));
     }
 
     private void handleXp(CommandSender sender) {
@@ -581,7 +582,7 @@ public class BuildCommand implements TabExecutor {
             return;
         }
         long xp = progressionService.getData(player.getUniqueId()).getBuildXpGained();
-        player.sendMessage(Component.text("Build XP gained: " + xp, NamedTextColor.AQUA));
+        player.sendMessage(Component.text("Build XP gained: " + CompactNumberFormatter.format(xp), NamedTextColor.AQUA));
     }
 
     private boolean createSubmission(Player player, String id, List<BuildParticipant> participants) {
@@ -609,7 +610,7 @@ public class BuildCommand implements TabExecutor {
             }
             long share = submission.shareFor(participant.uuid());
             Component headline = gradientText("Your build " + submission.id() + " was graded!", true);
-            Component body = Component.text("Use /build list to claim " + share + " XP.", NamedTextColor.GRAY);
+            Component body = Component.text("Use /build list to claim " + CompactNumberFormatter.format(share) + " XP.", NamedTextColor.GRAY);
             player.sendMessage(headline.append(Component.newline()).append(body));
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
         }
@@ -638,7 +639,7 @@ public class BuildCommand implements TabExecutor {
         return submission.id()
                 + " @ " + submission.world()
                 + " (" + submission.x() + ", " + submission.y() + ", " + submission.z() + ")"
-                + " - " + submission.xpTotal() + " XP - "
+                + " - " + CompactNumberFormatter.format(submission.xpTotal()) + " XP - "
                 + submission.participantsLabel();
     }
 
@@ -762,7 +763,7 @@ public class BuildCommand implements TabExecutor {
     }
 
     private Component xpTag(long share) {
-        return Component.text("(" + share + " xp)", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD);
+        return Component.text("(" + CompactNumberFormatter.format(share) + " xp)", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD);
     }
 
     private Component gradientText(String text, boolean bold) {

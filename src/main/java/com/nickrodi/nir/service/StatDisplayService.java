@@ -106,6 +106,7 @@ public class StatDisplayService {
             String text = String.format(java.util.Locale.US, "%.2f%% streak", value / 100.0);
             return Component.text(text, NamedTextColor.WHITE);
         }
+        String shownValue = CompactNumberFormatter.format(value);
         String label = switch (type) {
             case PLAYTIME -> "hours played";
             case ORES -> "ores mined";
@@ -131,7 +132,7 @@ public class StatDisplayService {
             case CHESTS -> "chests opened";
             case STREAK -> "";
         };
-        return Component.text(value + " " + label, NamedTextColor.WHITE);
+        return Component.text(shownValue + " " + label, NamedTextColor.WHITE);
     }
 
     private int resolveStatValue(StatDisplayType type, UUID uuid) {

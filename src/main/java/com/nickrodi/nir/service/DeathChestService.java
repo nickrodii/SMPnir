@@ -41,6 +41,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
  * - Place one DOUBLE chest with all drops.
  * - If touching lava, show a hologram "Chest burns in MM:SS" and count down.
  * - Timer pauses when not touching lava; resumes if lava touches again.
+ * - Lava countdown never despawns the chest.
  * - When emptied, the chest is destroyed (no drops).
  * - When broken, contents drop but chest item does not.
  */
@@ -284,7 +285,9 @@ public class DeathChestService {
                 }
 
                 if (chest.remainingMs <= 0L) {
-                    despawnChest(chest);
+                    chest.remainingMs = 0L;
+                    chest.burning = false;
+                    removeDisplay(chest);
                     continue;
                 }
 
